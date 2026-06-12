@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCSVImport } from '../hooks/useCSVImport'
 import './CreateRFQModal.css'
 import './CSVImportModal.css'
@@ -13,6 +13,7 @@ function downloadSample() {
 export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
   const { importing, result, error, importCSV, reset } = useCSVImport()
   const fileInputRef = useRef(null)
+  const [mode, setMode] = useState('append')
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -23,11 +24,12 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
   async function handleImport() {
     const file = fileInputRef.current?.files?.[0]
     if (!file) return
-    await importCSV(rfqId, file)
+    await importCSV(rfqId, file, mode)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function handleFileChange() { reset() }
+  function handleModeChange(e) { setMode(e.target.value); reset() }
 
   function handleClose() {
     if (result?.imported > 0) onSuccess()
@@ -58,6 +60,27 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
                 className="csv-file-input"
               />
             </div>
+          </div>
+
+          <div className="csv-mode-row">
+            <label className="csv-file-label">Import Mode</label>
+            <div className="csv-mode-options">
+              <label className={`csv-mode-option${mode === 'append' ? ' csv-mode-option--active' : ''}`}>
+                <input type="radio" name="csv-mode" value="append" checked={mode === 'append'} onChange={handleModeChange} />
+                <span className="csv-mode-title">Append</span>
+                <span className="csv-mode-desc">Add new quotes; skip rows that already exist</span>
+              </label>
+              <label className={`csv-mode-option${mode === 'replace' ? ' csv-mode-option--active' : ''}`}>
+                <input type="radio" name="csv-mode" value="replace" checked={mode === 'replace'} onChange={handleModeChange} />
+                <span className="csv-mode-title">Replace</span>
+                <span className="csv-mode-desc">Clear all existing quotes and import from this file</span>
+              </label>
+            </div>
+            {mode === 'replace' && (
+              <div className="csv-replace-warning">
+                All existing quotes for this RFQ will be permanently deleted before import.
+              </div>
+            )}
           </div>
 
           <div className="csv-format-hint">

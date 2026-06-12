@@ -6,13 +6,14 @@ export function useCSVImport() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
 
-  async function importCSV(rfqId, file) {
+  async function importCSV(rfqId, file, mode = 'append') {
     setImporting(true)
     setResult(null)
     setError(null)
 
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('mode', mode)
 
     try {
       const response = await api.post(`/rfq/${rfqId}/quotes/import`, formData, {
