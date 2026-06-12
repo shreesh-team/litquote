@@ -58,12 +58,12 @@ server/
   db/migrations/           # numbered .sql files — auto-applied at startup
   routers/rfq.py           # CRUD for RFQ ✓ implemented
   routers/quotes.py        # add/list/delete quotes ✓ implemented
-  routers/csv_import.py    # multipart CSV upload (Feature Spec 04)
+  routers/csv_import.py    # POST /api/rfq/:id/quotes/import — file validation, dedup, bulk insert ✓ implemented
   models/rfq.py            # Pydantic request/response models ✓ implemented
   models/quote.py          # QuoteCreate / QuoteResponse / QuoteListResponse ✓ implemented
   services/__init__.py     # empty package marker ✓
   services/comparison.py   # enrich_quotes() — total_price + is_best_quote + delivery_risk ✓ implemented
-  services/csv_parser.py   # CSV parsing + per-row validation (Feature Spec 04)
+  services/csv_parser.py   # CSV parsing, column aliasing, per-row validation, within-file dedup ✓ implemented
 ```
 
 **No ORM** — raw SQL via psycopg2. All money values use `NUMERIC(15,4)` in PostgreSQL and `Decimal` in Python (never `float`).
@@ -78,6 +78,7 @@ server/
 - `delivery_risk` — `True` when `today + lead_time_days > rfq.delivery_expectation`; `False` if either field is null
 - `currency_warning` — `True` when an RFQ's quotes have more than one distinct currency code; the comparison table shows a warning banner but still renders
 - Quote `source` field — `"manual"` for form-entered quotes, `"csv"` for imported ones
+- CSV dedup key — `(supplier_name, unit_price, currency)`; within-file duplicates are silently skipped (first wins); DB-level duplicates are rejected with a row-level error message
 
 ### Frontend Structure
 
@@ -91,16 +92,17 @@ client/src/
     QuoteTable.jsx / QuoteTable.css  # paginated comparison table, 10 rows/page, best-quote highlight + delivery risk badge ✓
     AddQuoteForm.jsx / AddQuoteForm.css  # quote input form (used inside AddQuoteModal) ✓
     AddQuoteModal.jsx              # modal wrapper for AddQuoteForm, triggered from RFQDetailPage ✓
+    CSVImportModal.jsx             # modal for CSV bulk import — file picker, result banner, error table ✓
   hooks/
     useRFQList.js            # GET /api/rfq, deleteRFQ, pagination ✓
     useCreateRFQ.js          # POST /api/rfq, 422 field-error mapping, navigate on success ✓
     useRFQ.js                # GET /api/rfq/:id ✓
     useQuotes.js             # GET /api/rfq/:id/quotes, deleteQuote ✓
     useAddQuote.js           # POST /api/rfq/:id/quotes, 422 field-error mapping, returns bool success ✓
-    useCSVImport.js          # POST /api/rfq/:id/quotes/import (Feature Spec 04)
+    useCSVImport.js          # POST /api/rfq/:id/quotes/import — returns { importing, result, error, importCSV, reset } ✓
   pages/
     RFQListPage.jsx          # /rfq — table + modal trigger + sticky pagination ✓
-    RFQDetailPage.jsx        # /rfq/:id — collapsible RFQ card, paginated quote table, Add Quote modal ✓
+    RFQDetailPage.jsx        # /rfq/:id — RFQ card, quote table, Add Quote modal, Upload Quotes (CSV) modal ✓
 ```
 
 Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage`. Create RFQ is a modal on the list page, not a separate route. State is managed with `useState` + custom hooks per page. No global state library.
@@ -112,7 +114,8 @@ Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage
 - `#root` boilerplate `flex-direction: column` is overridden to `row` in `index.css`
 - `.section-header` — flex row used when a section heading needs a right-aligned action button (e.g. "+ Add Quote")
 - `.summary-toggle` — button at the bottom of `.summary-card` that reveals/hides extra rows
-- `AddQuoteModal.jsx` imports `CreateRFQModal.css` directly (shared modal chrome styles)
+- `AddQuoteModal.jsx` and `CSVImportModal.jsx` both import `CreateRFQModal.css` (shared modal chrome styles)
+- `RFQDetailPage` section header has two buttons: "Upload Quotes" (opens `CSVImportModal`) and "+ Add Quote" (opens `AddQuoteModal`)
 
 ### Environment
 

@@ -1,4 +1,4 @@
-# Feature Spec 04 — CSV Import
+﻿# Feature Spec 04 – CSV Import
 
 ## Overview
 
@@ -19,12 +19,13 @@ A procurement user can bulk-import supplier quotes for an RFQ by uploading a CSV
 
 ### CSV-1: Upload CSV
 
-**Location:** A "CSV Import" section below the Add Quote form on the RFQ detail page (`/rfq/:id`).
+**Location:** "Upload Quotes" button in the Supplier Quotes section header on the RFQ detail page (`/rfq/:id`), placed to the left of the existing "+ Add Quote" button. Clicking it opens a **CSV Import modal**.
 
-**UI elements:**
+**Modal UI elements:**
 - File input (accepts `.csv` only; no drag-and-drop required)
-- "Import Quotes" button
-- "Download sample CSV" link (see CSV-4)
+- "Import Quotes" button (modal footer, right)
+- "Download sample CSV" link (modal footer, left — see CSV-4)
+- "Cancel" / "Done" button (modal footer)
 
 **Trigger:** User selects a file and clicks "Import Quotes".
 
@@ -40,19 +41,19 @@ A procurement user can bulk-import supplier quotes for an RFQ by uploading a CSV
 | Must contain `unit_price` column (or alias) | "Required column 'unit_price' is missing." |
 | Must have at least one data row | "The CSV file contains no data rows." |
 
-These errors are returned as HTTP 400 and displayed as a banner above the file input. They block all import — no rows are processed.
+These errors are returned as HTTP 400 and displayed as a banner inside the modal. They block all import — no rows are processed.
 
 **Success behavior:**
-- Summary banner appears: "4 quotes imported successfully. 1 row failed — see errors below."
-- The newly imported quotes appear immediately in the comparison table (the API response includes the enriched quote objects)
+- Summary banner appears inside the modal: "4 quotes imported successfully. 1 row failed — see errors below."
+- The comparison table updates immediately when the modal is closed (or when any rows were imported)
 - The file input resets (allows re-import)
-- The Add Quote form is unaffected
+- The footer button changes from "Cancel" to "Done" after a successful import
 
 ---
 
 ### CSV-2: Row-Level Error Reporting
 
-**When some rows fail**, the response still has HTTP 200. The error section renders below the import section:
+**When some rows fail**, the response still has HTTP 200. The error section renders inside the modal below the summary banner:
 
 **Error table columns:** Row | Field | Value | Error
 
@@ -63,12 +64,13 @@ Example:
 | 3 | unit_price | abc | unit_price must be a non-negative number |
 | 5 | currency | US | currency must be a 3-letter ISO code (e.g., USD, EUR) |
 | 7 | supplier_name | (empty) | supplier_name is required |
+| 9 | supplier_name | Acme Metals | a quote from 'Acme Metals' with price 12.75 USD already exists for this RFQ |
 
 **Row numbering:** 1-indexed, counting only data rows (the header row is not row 1 — the first data row is row 1). This matches how the user sees rows in a spreadsheet.
 
 **Multiple errors per row:** If a single row has two bad fields, both errors appear as separate table rows. The user sees the full picture in one pass.
 
-**Error persistence:** The error table stays visible until the user triggers another import or navigates away. It does not auto-dismiss.
+**Error persistence:** The error table stays visible until the user triggers another import or closes the modal.
 
 ---
 
@@ -80,15 +82,27 @@ Example:
 - Parsing and validation: per-row
 - Database insert: all valid rows are inserted in a single transaction. If the DB insert fails (rare), all valid rows roll back together — but this is not exposed as a row-level error (it surfaces as a 500)
 
-**No deduplication:** Re-importing the same file imports duplicate rows. The user is responsible for not double-importing. The `source = "csv"` column allows identifying and manually cleaning up duplicates if needed.
+---
+
+### CSV-3a: Deduplication
+
+**Duplicate key:** `(supplier_name, unit_price, currency)` — the same supplier can appear in an RFQ with a different price (e.g. a revised quote) and it is treated as a distinct quote. Only an exact match on all three fields is a duplicate.
+
+**Within-file deduplication:** If the same `(supplier_name, unit_price, currency)` combination appears more than once in the uploaded CSV, the first occurrence is kept and subsequent occurrences are silently skipped (not counted as errors or successes).
+
+**Against existing DB rows:** Before inserting, the server checks existing quotes for this RFQ. Any CSV row whose `(supplier_name, unit_price, currency)` already exists in the database is rejected with a row-level error:
+
+> `"a quote from '{supplier_name}' with price {unit_price} {currency} already exists for this RFQ"`
+
+This allows re-importing a corrected file without creating duplicates, while still allowing the same supplier to appear at a different price.
 
 ---
 
 ### CSV-4: Sample CSV Download
 
-**Trigger:** User clicks "Download sample CSV" link.
+**Trigger:** User clicks "Download sample CSV" link inside the modal.
 
-**Behavior:** Browser downloads a file named `sample_quotes.csv` with the following content (generated as a Blob URL client-side, or served as a static file):
+**Behavior:** Browser downloads a file named `sample_quotes.csv` with the following content (generated as a Blob URL client-side):
 
 ```csv
 supplier_name,unit_price,currency,lead_time_days,payment_terms,remarks
@@ -127,7 +141,7 @@ Column order is flexible. Extra unrecognized columns are silently ignored.
 | `currency` | No | string | 3 letters if provided | "currency must be a 3-letter ISO code (e.g., USD, EUR)" |
 | `lead_time_days` | No | integer | Non-negative whole number if provided | "lead_time_days must be a non-negative integer" |
 | `payment_terms` | No | string | Max 255 chars | "payment_terms exceeds 255 characters" |
-| `remarks` | No | string | No limit | — |
+| `remarks` | No | string | No limit | – |
 
 **Blank optional fields** are treated as `null` — not an error.
 
@@ -185,7 +199,7 @@ Full spec: `product-docs/03-api-spec.md` and `product-docs/04-csv-format.md`.
 ## Acceptance Criteria
 
 - [ ] User can upload `sample_quotes.csv` (from the repo root) and all 3 rows import successfully
-- [ ] The imported quotes appear immediately in the comparison table after import
+- [ ] The imported quotes appear immediately in the comparison table after the modal is closed
 - [ ] `source` field on imported quotes is `"csv"` (visible in the Source column as a blue "CSV" badge)
 - [ ] A CSV with one bad row and two good rows imports the two good rows and reports one error
 - [ ] A CSV with all bad rows imports 0 rows and reports all errors
@@ -195,8 +209,11 @@ Full spec: `product-docs/03-api-spec.md` and `product-docs/04-csv-format.md`.
 - [ ] A file larger than 5 MB returns a 400 with a clear message
 - [ ] `currency` values are coerced to uppercase (`usd` → `USD`)
 - [ ] After a successful import, the file input resets so a second import can be done immediately
-- [ ] "Download sample CSV" produces a downloadable file with the correct 3-column sample content
+- [ ] "Download sample CSV" produces a downloadable file with the correct 3-row sample content
 - [ ] If quotes with mixed currencies are imported (e.g., USD + EUR), the currency warning banner appears above the comparison table
+- [ ] Uploading the same CSV twice imports all rows the first time; the second upload reports every row as a duplicate error and imports 0
+- [ ] A CSV with two identical rows (same supplier_name, unit_price, currency) imports only one of them silently — no error for the duplicate row
+- [ ] A supplier that appears twice in the CSV with different prices is imported as two distinct quotes (not a duplicate)
 
 ---
 
@@ -204,7 +221,6 @@ Full spec: `product-docs/03-api-spec.md` and `product-docs/04-csv-format.md`.
 
 - Drag-and-drop file upload
 - Excel (`.xlsx`) or other format support
-- Deduplication of imported quotes against existing quotes
 - User-configurable column mapping
 - Previewing rows before committing the import
 - Async/background import for large files
