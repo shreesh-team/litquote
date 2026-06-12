@@ -1,0 +1,4 @@
+supplier_name,unit_price,currency,lead_time_days,payment_terms,remarks
+Acme Metals,12.75,USD,14,Net 30,Includes shipping
+Global Steel,11.50,USD,21,Net 45,FOB origin
+Pacific Supplies,13.20,USD,7,COD,Express delivery available
