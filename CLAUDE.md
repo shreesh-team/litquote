@@ -49,23 +49,25 @@ server: { proxy: { '/api': 'http://localhost:8000' } }
 
 This eliminates CORS in development. The CORS middleware already in `main.py` covers non-proxied access (Postman, Swagger UI).
 
-### Backend Structure (planned, per product-docs)
+### Backend Structure
 
 ```
 server/
   main.py                  # app factory, lifespan, CORS, exception handlers
   db/connection.py         # psycopg2 ThreadedConnectionPool, get_db dependency, run_migrations
   db/migrations/           # numbered .sql files — auto-applied at startup
-  routers/rfq.py           # CRUD for RFQ
-  routers/quotes.py        # add/list/delete quotes
-  routers/csv_import.py    # multipart CSV upload
-  models/rfq.py            # Pydantic request/response models
-  models/quote.py
-  services/comparison.py   # total_price + is_best_quote computation (pure function, no DB)
-  services/csv_parser.py   # CSV parsing + per-row validation
+  routers/rfq.py           # CRUD for RFQ ✓ implemented
+  routers/quotes.py        # add/list/delete quotes (Feature Spec 02)
+  routers/csv_import.py    # multipart CSV upload (Feature Spec 04)
+  models/rfq.py            # Pydantic request/response models ✓ implemented
+  models/quote.py          # (Feature Spec 02)
+  services/comparison.py   # total_price + is_best_quote computation (Feature Spec 03)
+  services/csv_parser.py   # CSV parsing + per-row validation (Feature Spec 04)
 ```
 
 **No ORM** — raw SQL via psycopg2. All money values use `NUMERIC(15,4)` in PostgreSQL and `Decimal` in Python (never `float`).
+
+> **`INSERT ... RETURNING` gotcha:** Table aliases (e.g. `r.column`) are not valid in RETURNING clauses — use bare column names only.
 
 ### Key Business Logic
 
@@ -74,9 +76,33 @@ server/
 - `currency_warning` — `True` when an RFQ's quotes have more than one distinct currency code; the comparison table shows a warning banner but still renders
 - Quote `source` field — `"manual"` for form-entered quotes, `"csv"` for imported ones
 
-### Frontend Structure (planned, per product-docs)
+### Frontend Structure
 
-Three pages under React Router: `/rfq` (list), `/rfq/new` (create), `/rfq/:id` (detail + comparison table + add-quote form + CSV import). State is managed with `useState` + custom hooks per page (`useRFQList`, `useRFQ`, `useAddQuote`, `useCSVImport`). No global state library.
+```
+client/src/
+  api/client.js              # Axios instance, baseURL: '/api'
+  components/
+    Layout.jsx / Layout.css  # persistent shell — left sidebar nav (200px) + right <Outlet />
+    CreateRFQModal.jsx/.css  # modal overlay for RFQ creation (no dedicated /rfq/new page)
+    RFQSummaryCard.jsx       # read-only RFQ detail card
+  hooks/
+    useRFQList.js            # GET /api/rfq, deleteRFQ, pagination ✓
+    useCreateRFQ.js          # POST /api/rfq, 422 field-error mapping, navigate on success ✓
+    useRFQ.js                # GET /api/rfq/:id ✓
+    useAddQuote.js           # POST /api/rfq/:id/quotes (Feature Spec 02)
+    useCSVImport.js          # POST /api/rfq/:id/quotes/import (Feature Spec 04)
+  pages/
+    RFQListPage.jsx          # /rfq — table + modal trigger + sticky pagination ✓
+    RFQDetailPage.jsx        # /rfq/:id — summary card + quote sections (02/03) ✓
+```
+
+Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage`. Create RFQ is a modal on the list page, not a separate route. State is managed with `useState` + custom hooks per page. No global state library.
+
+**Layout notes:**
+- `.content` is `height: 100svh; overflow-y: auto` — it is the scroll container; sticky pagination relies on this
+- `.page` is `flex: 1; display: flex; flex-direction: column` with no `max-width` — fills the right panel
+- `.pagination` uses `position: sticky; bottom: 0; justify-content: center`
+- `#root` boilerplate `flex-direction: column` is overridden to `row` in `index.css`
 
 ### Environment
 
