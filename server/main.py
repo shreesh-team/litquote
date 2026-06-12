@@ -3,12 +3,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from db.connection import run_migrations
+from db.seed import run_seed
 from routers import rfq, quotes, csv_import
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     run_migrations()
+    run_seed()
     yield
 
 
