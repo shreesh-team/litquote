@@ -49,6 +49,7 @@ class QuoteResponse(BaseModel):
     created_at: datetime
     total_price: Decimal
     is_best_quote: bool
+    delivery_risk: bool
 
 
 class QuoteSummary(BaseModel):

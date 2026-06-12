@@ -45,7 +45,6 @@ export default function RFQDetailPage() {
         ) : (
           <QuoteTable
             quotes={quotesData?.quotes ?? []}
-            bestQuoteId={quotesData?.best_quote_id}
             onDelete={deleteQuote}
             currencyWarning={quotesData?.summary?.currency_warning}
           />

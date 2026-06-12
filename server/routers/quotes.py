@@ -97,7 +97,7 @@ def add_quote(rfq_id: UUID, body: QuoteCreate, db: PgConnection = Depends(get_db
         db.commit()
 
     all_quotes = [_quote_row_to_dict(r) for r in all_rows]
-    enriched, _ = enrich_quotes(all_quotes, rfq["quantity"])
+    enriched, _ = enrich_quotes(all_quotes, rfq["quantity"], rfq.get("delivery_expectation"))
 
     new_id = new_row[0]
     enriched_new = next(q for q in enriched if q["id"] == new_id)
@@ -110,13 +110,13 @@ def list_quotes(rfq_id: UUID, db: PgConnection = Depends(get_db)):
 
     with db.cursor() as cur:
         cur.execute(
-            f"SELECT {_QUOTE_COLS} FROM supplier_quote q WHERE q.rfq_id = %s ORDER BY q.created_at ASC",
+            f"SELECT {_QUOTE_COLS} FROM supplier_quote q WHERE q.rfq_id = %s",
             (str(rfq_id),),
         )
         rows = cur.fetchall()
 
     quotes = [_quote_row_to_dict(r) for r in rows]
-    enriched, best_quote_id = enrich_quotes(quotes, rfq["quantity"])
+    enriched, best_quote_id = enrich_quotes(quotes, rfq["quantity"], rfq.get("delivery_expectation"))
 
     totals = [q["total_price"] for q in enriched] if enriched else []
     currencies = {q["currency"] for q in enriched}

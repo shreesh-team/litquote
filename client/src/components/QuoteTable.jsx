@@ -3,7 +3,7 @@ import './QuoteTable.css'
 
 const PAGE_SIZE = 10
 
-export default function QuoteTable({ quotes, bestQuoteId, onDelete, currencyWarning }) {
+export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
   const [page, setPage] = useState(0)
 
   const totalPages = Math.max(1, Math.ceil(quotes.length / PAGE_SIZE))
@@ -11,14 +11,14 @@ export default function QuoteTable({ quotes, bestQuoteId, onDelete, currencyWarn
   const pageQuotes = quotes.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
 
   if (quotes.length === 0) {
-    return <p className="text-muted">No quotes yet. Add the first quote using the button above.</p>
+    return <p className="text-muted">No quotes yet. Add a quote below or import from CSV.</p>
   }
 
   return (
     <div className="quote-table-wrapper">
       {currencyWarning && (
         <div className="alert alert-warning">
-          Quotes use mixed currencies — totals are not directly comparable.
+          ⚠ Quotes use mixed currencies. Total price comparison may not be meaningful.
         </div>
       )}
       <table className="quote-table">
@@ -31,19 +31,33 @@ export default function QuoteTable({ quotes, bestQuoteId, onDelete, currencyWarn
             <th>Lead Time</th>
             <th>Payment Terms</th>
             <th>Remarks</th>
+            <th>Source</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {pageQuotes.map((q) => (
-            <tr key={q.id} className={q.id === bestQuoteId ? 'row--best' : ''}>
-              <td>{q.supplier_name}</td>
-              <td className="num">{Number(q.unit_price).toFixed(4)}</td>
+            <tr key={q.id} className={q.is_best_quote ? 'row--best' : ''}>
+              <td>
+                {q.supplier_name}
+                {q.is_best_quote && <span className="badge badge-best">Best Price</span>}
+              </td>
+              <td className="num">{Number(q.unit_price).toFixed(2)}</td>
               <td>{q.currency}</td>
-              <td className="num">{Number(q.total_price).toFixed(4)}</td>
-              <td>{q.lead_time_days != null ? `${q.lead_time_days}d` : '—'}</td>
+              <td className={`num${q.is_best_quote ? ' num--best' : ''}`}>
+                {Number(q.total_price).toFixed(2)}
+              </td>
+              <td>
+                {q.lead_time_days != null ? `${q.lead_time_days} days` : '—'}
+                {q.delivery_risk && <span className="badge badge-risk">Late delivery risk</span>}
+              </td>
               <td>{q.payment_terms || '—'}</td>
               <td className="remarks-cell">{q.remarks || '—'}</td>
+              <td>
+                <span className={`badge badge-source ${q.source}`}>
+                  {q.source === 'csv' ? 'CSV' : 'Manual'}
+                </span>
+              </td>
               <td>
                 <button
                   className="btn btn-danger btn-sm"
