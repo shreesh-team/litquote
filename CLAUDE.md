@@ -62,7 +62,7 @@ server/
   models/rfq.py            # Pydantic request/response models ✓ implemented
   models/quote.py          # QuoteCreate / QuoteResponse / QuoteListResponse ✓ implemented
   services/__init__.py     # empty package marker ✓
-  services/comparison.py   # enrich_quotes() — total_price + is_best_quote ✓ implemented
+  services/comparison.py   # enrich_quotes() — total_price + is_best_quote + delivery_risk ✓ implemented
   services/csv_parser.py   # CSV parsing + per-row validation (Feature Spec 04)
 ```
 
@@ -74,6 +74,8 @@ server/
 
 - `total_price = unit_price × rfq.quantity` — computed in `services/comparison.py`, never stored
 - `is_best_quote` — set to `True` for all quotes tied at the minimum `total_price` within an RFQ
+- Quotes are sorted cheapest first; ties broken by `lead_time_days` ascending (no lead time sorts last)
+- `delivery_risk` — `True` when `today + lead_time_days > rfq.delivery_expectation`; `False` if either field is null
 - `currency_warning` — `True` when an RFQ's quotes have more than one distinct currency code; the comparison table shows a warning banner but still renders
 - Quote `source` field — `"manual"` for form-entered quotes, `"csv"` for imported ones
 
@@ -86,7 +88,7 @@ client/src/
     Layout.jsx / Layout.css        # persistent shell — left sidebar nav (200px) + right <Outlet />
     CreateRFQModal.jsx/.css        # modal overlay for RFQ creation (no dedicated /rfq/new page)
     RFQSummaryCard.jsx             # collapsible RFQ detail card (collapsed: name/qty/delivery; expanded: all fields) ✓
-    QuoteTable.jsx / QuoteTable.css  # paginated comparison table, 10 rows/page, best-quote highlight ✓
+    QuoteTable.jsx / QuoteTable.css  # paginated comparison table, 10 rows/page, best-quote highlight + delivery risk badge ✓
     AddQuoteForm.jsx / AddQuoteForm.css  # quote input form (used inside AddQuoteModal) ✓
     AddQuoteModal.jsx              # modal wrapper for AddQuoteForm, triggered from RFQDetailPage ✓
   hooks/
