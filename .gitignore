@@ -1,7 +1,8 @@
 # Python
-server/venv/
-server/__pycache__/
-server/*.pyc
+__pycache__/
+*.pyc
+server/.venv/
+server/.env
 server/.env
 
 # Node
