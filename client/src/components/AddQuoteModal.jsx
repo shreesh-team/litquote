@@ -17,18 +17,23 @@ export default function AddQuoteModal({ rfqId, onSuccess, onClose }) {
     <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="add-quote-title">
         <div className="modal-header">
-          <h2 id="add-quote-title">Add Quote</h2>
+          <h2 id="add-quote-title">Add Supplier Quote</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <AddQuoteForm
-          onSubmit={addQuote}
-          loading={loading}
-          error={error}
-          fieldErrors={fieldErrors}
-        />
+        <div className="modal-body">
+          <AddQuoteForm
+            onSubmit={addQuote}
+            loading={loading}
+            error={error}
+            fieldErrors={fieldErrors}
+          />
+        </div>
         <div className="modal-footer">
           <button type="button" className="btn" onClick={onClose} disabled={loading}>
             Cancel
+          </button>
+          <button type="submit" form="add-quote-form" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Saving…' : 'Save Quote'}
           </button>
         </div>
       </div>

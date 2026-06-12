@@ -15,7 +15,9 @@ export default function RFQListPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>RFQs</h1>
+        <div>
+          <h1>Request for Quotations</h1>
+        </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           + New RFQ
         </button>
@@ -24,13 +26,17 @@ export default function RFQListPage() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading">Loading…</div>
+        <div className="loading">Loading RFQs…</div>
       ) : rfqs.length === 0 ? (
-        <div className="empty-state">
-          <p>No RFQs yet. Create your first one.</p>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            + New RFQ
-          </button>
+        <div className="table-container">
+          <div className="empty-state">
+            <div className="empty-state-icon">📋</div>
+            <h3>No RFQs yet</h3>
+            <p>Create your first RFQ to start collecting and comparing supplier quotes.</p>
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+              + New RFQ
+            </button>
+          </div>
         </div>
       ) : (
         <div className="table-container">
@@ -40,20 +46,28 @@ export default function RFQListPage() {
                 <tr>
                   <th>Item Name</th>
                   <th>Quantity</th>
-                  <th>Delivery</th>
+                  <th>Delivery By</th>
                   <th>Quotes</th>
                   <th>Created</th>
-                  <th>Actions</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {rfqs.map((rfq) => (
                   <tr key={rfq.id}>
-                    <td>{rfq.item_name}</td>
+                    <td>
+                      <Link to={`/rfq/${rfq.id}`} style={{ color: 'var(--primary)', fontWeight: 500 }}>
+                        {rfq.item_name}
+                      </Link>
+                    </td>
                     <td>{rfq.quantity}</td>
-                    <td>{rfq.delivery_expectation ?? '—'}</td>
-                    <td>{rfq.quote_count}</td>
-                    <td>{new Date(rfq.created_at).toLocaleDateString()}</td>
+                    <td>{rfq.delivery_expectation ?? <span className="text-muted">—</span>}</td>
+                    <td>
+                      <span className="stat-chip">{rfq.quote_count}</span>
+                    </td>
+                    <td style={{ color: 'var(--text-muted)' }}>
+                      {new Date(rfq.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
                     <td className="actions">
                       <Link to={`/rfq/${rfq.id}`} className="btn btn-sm">View</Link>
                       <button
@@ -71,21 +85,21 @@ export default function RFQListPage() {
 
           <div className="pagination">
             <span className="pagination-count">
-              {total === 0 ? '0' : `${offset + 1}–${Math.min(offset + limit, total)}`} of {total}
+              {total === 0 ? '0' : `${offset + 1}–${Math.min(offset + limit, total)}`} of {total} RFQs
             </span>
             <button
               className="btn btn-sm"
               disabled={offset === 0}
               onClick={() => goToPage(Math.max(0, offset - limit))}
             >
-              Previous
+              ← Previous
             </button>
             <button
               className="btn btn-sm"
               disabled={offset + limit >= total}
               onClick={() => goToPage(offset + limit)}
             >
-              Next
+              Next →
             </button>
           </div>
         </div>

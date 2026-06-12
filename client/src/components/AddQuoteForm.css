@@ -1,28 +1,59 @@
-.add-quote-form {
-  background: var(--bg);
-}
-
-.form-row {
+.aq-form {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Full-width fields */
+.aq-full {
+  width: 100%;
+}
+
+/* Two-column row */
+.aq-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
-.form-row .form-group {
-  flex: 1 1 180px;
-  min-width: 140px;
-  margin-bottom: 16px;
+/* Unit price + currency fused together */
+.aq-input-group {
+  display: flex;
 }
 
-.form-row .form-group--sm {
-  flex: 0 1 120px;
+.aq-input-group input:first-child {
+  flex: 1;
+  border-right: none;
+  border-radius: 5px 0 0 5px;
 }
 
-.form-row .form-group--wide {
-  flex: 2 1 260px;
+.aq-input-group input:first-child:focus {
+  position: relative;
+  z-index: 1;
 }
 
-.form-actions {
-  margin-top: 4px;
+.aq-currency-input {
+  width: 68px;
+  flex-shrink: 0;
+  border-radius: 0 5px 5px 0;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px !important;
+  letter-spacing: 0.5px;
+  background: var(--surface-2) !important;
+  color: var(--text-muted) !important;
+  padding: 8px 8px !important;
+  border-left: 1px solid var(--border-strong) !important;
+}
+
+.aq-currency-input:focus {
+  color: var(--text-h) !important;
+  background: var(--bg) !important;
+}
+
+/* Required asterisk */
+.aq-required {
+  color: var(--danger);
+  font-weight: 700;
 }

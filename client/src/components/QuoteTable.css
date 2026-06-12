@@ -1,108 +1,171 @@
 .quote-table-wrapper {
-  overflow-x: auto;
-  margin-bottom: 32px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
 }
 
 .quote-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
-}
-
-.quote-table th,
-.quote-table td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  font-size: 13px;
 }
 
 .quote-table th {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
   font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.quote-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
   color: var(--text-h);
-  background: var(--accent-bg);
+  white-space: nowrap;
+  font-size: 13px;
+  vertical-align: middle;
 }
 
-.quote-table tbody tr:hover {
-  background: var(--accent-bg);
+.quote-table tbody tr:last-child td { border-bottom: none; }
+
+.quote-table tbody tr:hover td { background: var(--primary-light); }
+
+/* Best quote row */
+.quote-table .row--best td {
+  background: var(--success-bg);
+}
+.quote-table .row--best:hover td {
+  background: #dcfce7;
+}
+.quote-table .row--best td:first-child {
+  border-left: 3px solid var(--success);
+  padding-left: 11px;
 }
 
-.quote-table .row--best {
-  background: #f0fdf4;
-  border-left: 4px solid #22c55e;
-}
-
+/* Numeric cells */
 .quote-table .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  font-family: var(--mono);
+  font-size: 12px;
 }
 
 .quote-table .num--best {
   font-weight: 700;
-  color: #15803d;
+  color: var(--success);
 }
 
+/* Remarks */
 .quote-table .remarks-cell {
-  max-width: 200px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 7px;
   white-space: nowrap;
 }
 
 .badge-best {
-  display: inline-block;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
   margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  background: #dcfce7;
-  color: #15803d;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.badge-source {
-  display: inline-block;
-  padding: 1px 7px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.badge-source.manual {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.badge-source.csv {
-  background: #dbeafe;
-  color: #1d4ed8;
 }
 
 .badge-risk {
-  display: inline-block;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
   margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 11px;
-  font-weight: 500;
 }
 
+.badge-source {
+  border: 1px solid transparent;
+}
+
+.badge-source.manual {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.badge-source.csv {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-border);
+}
+
+/* ── Currency warning banner ── */
+.alert-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--warning-border);
+}
+
+/* ── Pagination ── */
 .quote-pagination {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 0 4px;
-  font-size: 13px;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 12px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
 }
 
-.alert-warning {
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  border-radius: 6px;
-  background: #fffbeb;
-  border: 1px solid #f59e0b;
-  color: #92400e;
+.quote-pagination .pagination-count {
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+
+/* ── Empty state inside table ── */
+.quote-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
   font-size: 13px;
+  gap: 8px;
+}
+
+.quote-empty-icon {
+  font-size: 28px;
+  opacity: 0.35;
+  margin-bottom: 4px;
 }

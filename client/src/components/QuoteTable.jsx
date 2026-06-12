@@ -11,7 +11,15 @@ export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
   const pageQuotes = quotes.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
 
   if (quotes.length === 0) {
-    return <p className="text-muted">No quotes yet. Add a quote below or import from CSV.</p>
+    return (
+      <div className="quote-table-wrapper">
+        <div className="quote-empty">
+          <div className="quote-empty-icon">💬</div>
+          <strong>No quotes yet</strong>
+          <span>Add a quote manually or import from CSV to start comparing.</span>
+        </div>
+      </div>
+    )
   }
 
   return (

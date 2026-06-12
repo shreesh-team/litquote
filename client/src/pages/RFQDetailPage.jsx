@@ -14,7 +14,7 @@ export default function RFQDetailPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [csvModalOpen, setCsvModalOpen] = useState(false)
 
-  if (loading) return <div className="page"><div className="loading">Loading…</div></div>
+  if (loading) return <div className="page"><div className="loading">Loading RFQ…</div></div>
   if (error) return (
     <div className="page">
       <div className="alert alert-error">{error}</div>
@@ -25,8 +25,10 @@ export default function RFQDetailPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <Link to="/rfq" className="back-link">← Back to RFQs</Link>
-        <h1>{rfq.item_name}</h1>
+        <div>
+          <Link to="/rfq" className="back-link">← RFQs</Link>
+          <h1 style={{ marginTop: 4 }}>{rfq.item_name}</h1>
+        </div>
       </div>
 
       <section className="section">
@@ -39,7 +41,7 @@ export default function RFQDetailPage() {
           <h2>Supplier Quotes</h2>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn btn-sm" onClick={() => setCsvModalOpen(true)}>
-              Upload Quotes
+              ↑ Upload CSV
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => setModalOpen(true)}>
               + Add Quote

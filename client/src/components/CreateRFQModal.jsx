@@ -71,9 +71,10 @@ export default function CreateRFQModal({ onClose }) {
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
+        <div className="modal-body">
         {error && <div className="alert alert-error">{error}</div>}
 
-        <form onSubmit={handleSubmit} noValidate>
+        <form id="create-rfq-form" onSubmit={handleSubmit} noValidate>
           <div className={`form-group ${err('item_name') ? 'has-error' : ''}`}>
             <label htmlFor="item_name">Item Name *</label>
             <input
@@ -135,15 +136,21 @@ export default function CreateRFQModal({ onClose }) {
             />
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn" onClick={onClose} disabled={loading}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Creating…' : 'Create RFQ'}
-            </button>
-          </div>
         </form>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="create-rfq-form"
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            {loading ? 'Creating…' : 'Create RFQ'}
+          </button>
+        </div>
       </div>
     </div>
   )

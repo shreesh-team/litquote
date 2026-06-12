@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useCSVImport } from '../hooks/useCSVImport'
 import './CreateRFQModal.css'
+import './CSVImportModal.css'
 
 const SAMPLE_CSV =
   'supplier_name,unit_price,currency,lead_time_days,payment_terms,remarks\n' +
@@ -35,9 +36,7 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  function handleFileChange() {
-    reset()
-  }
+  function handleFileChange() { reset() }
 
   function handleClose() {
     if (result?.imported > 0) onSuccess()
@@ -48,35 +47,47 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
     <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="csv-import-title">
         <div className="modal-header">
-          <h2 id="csv-import-title">Import Quotes from CSV</h2>
+          <div>
+            <h2 id="csv-import-title">Import Quotes from CSV</h2>
+          </div>
           <button className="modal-close" onClick={handleClose} aria-label="Close">✕</button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleFileChange}
-              disabled={importing}
-            />
+        <div className="modal-body">
+          <div className="csv-file-row">
+            <label className="csv-file-label" htmlFor="csv-file-input">CSV File</label>
+            <div className="csv-file-input-wrap">
+              <input
+                id="csv-file-input"
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                disabled={importing}
+                className="csv-file-input"
+              />
+            </div>
           </div>
 
-          {error && (
-            <div className="alert alert-error">{error}</div>
-          )}
+          <div className="csv-format-hint">
+            Required columns: <code>supplier_name</code>, <code>unit_price</code>, <code>currency</code>.
+            Optional: <code>lead_time_days</code>, <code>payment_terms</code>, <code>remarks</code>.
+          </div>
+
+          {error && <div className="alert alert-error">{error}</div>}
 
           {result && (
             <div className={result.failed > 0 ? 'alert alert-warning' : 'alert alert-success'}>
-              {result.imported} {result.imported === 1 ? 'quote' : 'quotes'} imported successfully.
-              {result.failed > 0 && ` ${result.failed} ${result.failed === 1 ? 'row' : 'rows'} failed — see errors below.`}
+              <strong>
+                {result.imported} {result.imported === 1 ? 'quote' : 'quotes'} imported.
+              </strong>
+              {result.failed > 0 && ` ${result.failed} ${result.failed === 1 ? 'row' : 'rows'} failed.`}
             </div>
           )}
 
           {result?.errors?.length > 0 && (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="quote-table">
+            <div className="csv-error-table-wrap">
+              <table className="csv-error-table">
                 <thead>
                   <tr>
                     <th>Row</th>
@@ -101,22 +112,13 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
         </div>
 
         <div className="modal-footer">
-          <button
-            type="button"
-            style={{ background: 'none', border: 'none', color: 'var(--color-primary, #2563eb)', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline', padding: 0, marginRight: 'auto' }}
-            onClick={downloadSample}
-          >
-            Download sample CSV
+          <button type="button" className="btn csv-sample-btn" onClick={downloadSample}>
+            ↓ Sample CSV
           </button>
           <button type="button" className="btn" onClick={handleClose} disabled={importing}>
             {result?.imported > 0 ? 'Done' : 'Cancel'}
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleImport}
-            disabled={importing}
-          >
+          <button type="button" className="btn btn-primary" onClick={handleImport} disabled={importing}>
             {importing ? 'Importing…' : 'Import Quotes'}
           </button>
         </div>
