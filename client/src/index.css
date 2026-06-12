@@ -426,76 +426,85 @@ a:hover { text-decoration: underline; }
   color: var(--danger);
 }
 
-/* ── Summary card ── */
-.summary-card {
+/* ── RFQ meta strip ── */
+.rfq-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
   box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
 }
 
-.summary-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  padding: 16px 20px;
-  gap: 16px 24px;
+.rfq-meta-item {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 20px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  position: relative;
 }
+.rfq-meta-item:last-child { border-right: none; }
 
-.summary-field-label {
-  font-size: 11px;
+.rfq-meta-label {
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 3px;
+  white-space: nowrap;
 }
 
-.summary-field-value {
+.rfq-meta-value {
   font-size: 13px;
+  font-weight: 500;
   color: var(--text-h);
-  font-weight: 500;
+  white-space: nowrap;
 }
 
-.summary-row {
-  display: flex;
-  padding: 9px 20px;
-  font-size: 13px;
-  border-bottom: 1px solid var(--border);
+.rfq-meta-item--grow {
+  flex: 1;
+  min-width: 120px;
 }
-.summary-row:last-child { border-bottom: none; }
 
-.summary-label {
-  width: 180px;
-  flex-shrink: 0;
+.rfq-meta-value--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rfq-meta-value--truncate[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  background: var(--text-h);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: normal;
+  word-break: break-word;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 100;
+}
+
+.rfq-meta-value--truncate[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+.rfq-meta-value--muted {
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding-top: 1px;
+  font-weight: 400;
 }
-
-.summary-value { color: var(--text-h); font-size: 13px; }
-
-.summary-toggle {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 8px 20px;
-  background: var(--surface-2);
-  border: none;
-  border-top: 1px solid var(--border);
-  color: var(--primary);
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--sans);
-  cursor: pointer;
-  text-align: left;
-  gap: 4px;
-  transition: background 0.12s;
-}
-.summary-toggle:hover { background: var(--primary-light); }
 
 /* ── Stat chips on page header ── */
 .stat-chip {

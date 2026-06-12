@@ -127,10 +127,7 @@ export default function RFQDetailPage() {
         </div>
       </div>
 
-      <section className="section">
-        <h2>RFQ Details</h2>
-        <RFQSummaryCard rfq={rfq} />
-      </section>
+      <RFQSummaryCard rfq={rfq} />
 
       <section className="section">
         <div className="section-header">

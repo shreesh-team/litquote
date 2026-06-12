@@ -1,53 +1,33 @@
-import { useState } from 'react'
+function MetaItem({ label, value, truncate, grow }) {
+  if (!value && value !== 0) return null
+  return (
+    <div className={`rfq-meta-item${grow ? ' rfq-meta-item--grow' : ''}`}>
+      <span className="rfq-meta-label">{label}</span>
+      <span
+        className={`rfq-meta-value${truncate ? ' rfq-meta-value--truncate' : ''}`}
+        data-tooltip={truncate ? String(value) : undefined}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
 
 export default function RFQSummaryCard({ rfq }) {
-  const [collapsed, setCollapsed] = useState(true)
+  const created = new Date(rfq.created_at).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  })
 
   return (
-    <div className="summary-card">
-      <div className="summary-row">
-        <span className="summary-label">Item Name</span>
-        <span className="summary-value">{rfq.item_name}</span>
-      </div>
-      <div className="summary-row">
-        <span className="summary-label">Quantity</span>
-        <span className="summary-value">{rfq.quantity}</span>
-      </div>
-      {rfq.delivery_expectation && (
-        <div className="summary-row">
-          <span className="summary-label">Delivery Expectation</span>
-          <span className="summary-value">{rfq.delivery_expectation}</span>
-        </div>
-      )}
-
-      {!collapsed && (
-        <>
-          {rfq.material_spec && (
-            <div className="summary-row">
-              <span className="summary-label">Material Spec</span>
-              <span className="summary-value">{rfq.material_spec}</span>
-            </div>
-          )}
-          {rfq.notes && (
-            <div className="summary-row">
-              <span className="summary-label">Notes</span>
-              <span className="summary-value">{rfq.notes}</span>
-            </div>
-          )}
-          <div className="summary-row">
-            <span className="summary-label">Quotes</span>
-            <span className="summary-value">{rfq.quote_count}</span>
-          </div>
-          <div className="summary-row">
-            <span className="summary-label">Created</span>
-            <span className="summary-value">{new Date(rfq.created_at).toLocaleDateString()}</span>
-          </div>
-        </>
-      )}
-
-      <button className="summary-toggle" onClick={() => setCollapsed(c => !c)}>
-        {collapsed ? 'Show more ▾' : 'Show less ▴'}
-      </button>
+    <div className="rfq-meta-strip">
+      <MetaItem label="Quantity" value={rfq.quantity} />
+      <MetaItem
+        label="Delivery By"
+        value={rfq.delivery_expectation ?? <span className="rfq-meta-value--muted">—</span>}
+      />
+      <MetaItem label="Material Spec" value={rfq.material_spec} truncate grow />
+      <MetaItem label="Notes" value={rfq.notes} truncate grow />
+      <MetaItem label="Created" value={created} />
     </div>
   )
 }
