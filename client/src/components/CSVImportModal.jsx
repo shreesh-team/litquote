@@ -3,20 +3,11 @@ import { useCSVImport } from '../hooks/useCSVImport'
 import './CreateRFQModal.css'
 import './CSVImportModal.css'
 
-const SAMPLE_CSV =
-  'supplier_name,unit_price,currency,lead_time_days,payment_terms,remarks\n' +
-  'Acme Metals,12.75,USD,14,Net 30,Includes shipping\n' +
-  'Global Steel,11.50,USD,21,Net 45,FOB origin\n' +
-  'Pacific Supplies,13.20,USD,7,COD,Express delivery available\n'
-
 function downloadSample() {
-  const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' })
-  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url
+  a.href = '/sample_quotes.csv'
   a.download = 'sample_quotes.csv'
   a.click()
-  URL.revokeObjectURL(url)
 }
 
 export default function CSVImportModal({ rfqId, onSuccess, onClose }) {

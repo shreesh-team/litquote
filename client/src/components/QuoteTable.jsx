@@ -5,15 +5,49 @@ import './QuoteTable.css'
 
 const PAGE_SIZE = 10
 
+const SORT_COLS = {
+  supplier_name: (a, b) => a.supplier_name.localeCompare(b.supplier_name),
+  unit_price:    (a, b) => Number(a.unit_price) - Number(b.unit_price),
+  total_price:   (a, b) => Number(a.total_price) - Number(b.total_price),
+  lead_time_days: (a, b) => {
+    if (a.lead_time_days == null && b.lead_time_days == null) return 0
+    if (a.lead_time_days == null) return 1
+    if (b.lead_time_days == null) return -1
+    return a.lead_time_days - b.lead_time_days
+  },
+}
+
+function SortIcon({ col, sortKey, sortDir }) {
+  if (col !== sortKey) return <span className="sort-icon sort-icon--idle">↕</span>
+  return <span className="sort-icon sort-icon--active">{sortDir === 'asc' ? '▲' : '▼'}</span>
+}
+
 export default function QuoteTable({ quotes, onDelete, onAward, onRefresh, rfq, currencyWarning }) {
   const [page, setPage] = useState(0)
+  const [sortKey, setSortKey] = useState('total_price')
+  const [sortDir, setSortDir] = useState('asc')
   const [confirmQuote, setConfirmQuote] = useState(null)
   const [awardingQuote, setAwardingQuote] = useState(null)
   const [editQuote, setEditQuote] = useState(null)
 
-  const totalPages = Math.max(1, Math.ceil(quotes.length / PAGE_SIZE))
+  const handleSort = (col) => {
+    if (col === sortKey) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(col)
+      setSortDir('asc')
+    }
+    setPage(0)
+  }
+
+  const sorted = [...quotes].sort((a, b) => {
+    const cmp = SORT_COLS[sortKey](a, b)
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
-  const pageQuotes = quotes.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+  const pageQuotes = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
 
   const handleDeleteConfirm = async () => {
     const q = confirmQuote
@@ -51,11 +85,19 @@ export default function QuoteTable({ quotes, onDelete, onAward, onRefresh, rfq, 
       <table className="quote-table">
         <thead>
           <tr>
-            <th>Supplier</th>
-            <th>Unit Price</th>
+            <th className="th-sort" onClick={() => handleSort('supplier_name')}>
+              Supplier <SortIcon col="supplier_name" sortKey={sortKey} sortDir={sortDir} />
+            </th>
+            <th className="th-sort" onClick={() => handleSort('unit_price')}>
+              Unit Price <SortIcon col="unit_price" sortKey={sortKey} sortDir={sortDir} />
+            </th>
             <th>Currency</th>
-            <th>Total Price</th>
-            <th>Lead Time</th>
+            <th className="th-sort" onClick={() => handleSort('total_price')}>
+              Total Price <SortIcon col="total_price" sortKey={sortKey} sortDir={sortDir} />
+            </th>
+            <th className="th-sort" onClick={() => handleSort('lead_time_days')}>
+              Lead Time <SortIcon col="lead_time_days" sortKey={sortKey} sortDir={sortDir} />
+            </th>
             <th>Payment Terms</th>
             <th>Remarks</th>
             <th>Source</th>

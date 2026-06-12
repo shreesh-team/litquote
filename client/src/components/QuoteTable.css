@@ -26,6 +26,31 @@
   white-space: nowrap;
 }
 
+.quote-table th.th-sort {
+  cursor: pointer;
+  user-select: none;
+}
+
+.quote-table th.th-sort:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 9px;
+}
+
+.sort-icon--idle {
+  opacity: 0.3;
+}
+
+.sort-icon--active {
+  color: var(--primary);
+  opacity: 1;
+}
+
 .quote-table td {
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
