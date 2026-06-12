@@ -9,8 +9,6 @@
 
 litquote is a procurement tool for manufacturing teams. A user creates an RFQ (Request for Quotation) for a specific item, collects supplier quotes, and compares them in a table that automatically highlights the best price. Quotes can be entered manually or imported from a CSV file.
 
-Built as a fullstack take-home assignment for Stozia.
-
 ---
 
 ## Features
