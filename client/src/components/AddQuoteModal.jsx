@@ -18,7 +18,7 @@ export default function AddQuoteModal({ rfqId, onSuccess, onClose }) {
       <div className="modal modal--wide" role="dialog" aria-modal="true" aria-labelledby="add-quote-title">
         <div className="modal-header">
           <h2 id="add-quote-title">Add Supplier Quote</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="modal-close" onClick={onClose} onMouseDown={e => e.preventDefault()} aria-label="Close">✕</button>
         </div>
         <div className="modal-body">
           <AddQuoteForm
@@ -29,7 +29,7 @@ export default function AddQuoteModal({ rfqId, onSuccess, onClose }) {
           />
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose} disabled={loading}>
+          <button type="button" className="btn" onClick={onClose} onMouseDown={e => e.preventDefault()} disabled={loading}>
             Cancel
           </button>
           <button type="submit" form="add-quote-form" className="btn btn-primary" disabled={loading}>

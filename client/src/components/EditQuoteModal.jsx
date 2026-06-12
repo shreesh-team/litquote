@@ -30,7 +30,7 @@ export default function EditQuoteModal({ quote, onSuccess, onClose }) {
         <div className="modal-header">
           <h2 id="edit-quote-title">Edit Quote</h2>
           <div className="modal-header-meta">{quote.supplier_name}</div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="modal-close" onClick={onClose} onMouseDown={e => e.preventDefault()} aria-label="Close">✕</button>
         </div>
         <div className="modal-body">
           <AddQuoteForm
@@ -42,7 +42,7 @@ export default function EditQuoteModal({ quote, onSuccess, onClose }) {
           />
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose} disabled={loading}>
+          <button type="button" className="btn" onClick={onClose} onMouseDown={e => e.preventDefault()} disabled={loading}>
             Cancel
           </button>
           <button type="submit" form="add-quote-form" className="btn btn-primary" disabled={loading}>

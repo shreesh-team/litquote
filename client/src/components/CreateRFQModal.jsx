@@ -68,7 +68,7 @@ export default function CreateRFQModal({ onClose }) {
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div className="modal-header">
           <h2 id="modal-title">Create RFQ</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="modal-close" onClick={onClose} onMouseDown={e => e.preventDefault()} aria-label="Close">✕</button>
         </div>
 
         <div className="modal-body">
@@ -139,7 +139,7 @@ export default function CreateRFQModal({ onClose }) {
         </form>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose} disabled={loading}>
+          <button type="button" className="btn" onClick={onClose} onMouseDown={e => e.preventDefault()} disabled={loading}>
             Cancel
           </button>
           <button
