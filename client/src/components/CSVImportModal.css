@@ -81,6 +81,21 @@
   color: var(--text-h);
 }
 
+.csv-mode-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid var(--primary-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  vertical-align: middle;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  margin-left: 5px;
+}
+
 .csv-mode-desc {
   font-size: 11.5px;
   color: var(--text-muted);

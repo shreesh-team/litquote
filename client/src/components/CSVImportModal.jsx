@@ -21,6 +21,13 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  useEffect(() => {
+    if (result && result.failed === 0 && result.imported > 0) {
+      const t = setTimeout(() => { onSuccess(); onClose() }, 900)
+      return () => clearTimeout(t)
+    }
+  }, [result, onSuccess, onClose])
+
   async function handleImport() {
     const file = fileInputRef.current?.files?.[0]
     if (!file) return
@@ -67,7 +74,7 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
             <div className="csv-mode-options">
               <label className={`csv-mode-option${mode === 'append' ? ' csv-mode-option--active' : ''}`}>
                 <input type="radio" name="csv-mode" value="append" checked={mode === 'append'} onChange={handleModeChange} />
-                <span className="csv-mode-title">Append</span>
+                <span className="csv-mode-title">Append <span className="csv-mode-tag">Recommended</span></span>
                 <span className="csv-mode-desc">Add new quotes; skip rows that already exist</span>
               </label>
               <label className={`csv-mode-option${mode === 'replace' ? ' csv-mode-option--active' : ''}`}>
@@ -84,8 +91,8 @@ export default function CSVImportModal({ rfqId, onSuccess, onClose }) {
           </div>
 
           <div className="csv-format-hint">
-            Required columns: <code>supplier_name</code>, <code>unit_price</code>, <code>currency</code>.
-            Optional: <code>lead_time_days</code>, <code>payment_terms</code>, <code>remarks</code>.
+            <div>Required: <code>supplier_name</code>, <code>unit_price</code>, <code>currency</code>.</div>
+            <div>Optional: <code>lead_time_days</code>, <code>payment_terms</code>, <code>remarks</code>.</div>
           </div>
 
           {error && <div className="alert alert-error">{error}</div>}
