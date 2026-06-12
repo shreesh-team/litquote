@@ -1,10 +1,16 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router'
 import { useRFQ } from '../hooks/useRFQ'
+import { useQuotes } from '../hooks/useQuotes'
 import RFQSummaryCard from '../components/RFQSummaryCard'
+import QuoteTable from '../components/QuoteTable'
+import AddQuoteModal from '../components/AddQuoteModal'
 
 export default function RFQDetailPage() {
   const { id } = useParams()
   const { rfq, loading, error } = useRFQ(id)
+  const { data: quotesData, loading: quotesLoading, error: quotesError, fetchQuotes, deleteQuote } = useQuotes(id)
+  const [modalOpen, setModalOpen] = useState(false)
 
   if (loading) return <div className="page"><div className="loading">Loading…</div></div>
   if (error) return (
@@ -27,10 +33,32 @@ export default function RFQDetailPage() {
       </section>
 
       <section className="section">
-        <h2>Supplier Quotes</h2>
-        {/* Quote comparison table — coming in Feature 02 */}
-        <p className="text-muted">No quotes yet. Quote management coming soon.</p>
+        <div className="section-header">
+          <h2>Supplier Quotes</h2>
+          <button className="btn btn-primary btn-sm" onClick={() => setModalOpen(true)}>
+            + Add Quote
+          </button>
+        </div>
+        {quotesError && <div className="alert alert-error">{quotesError}</div>}
+        {quotesLoading ? (
+          <div className="loading">Loading quotes…</div>
+        ) : (
+          <QuoteTable
+            quotes={quotesData?.quotes ?? []}
+            bestQuoteId={quotesData?.best_quote_id}
+            onDelete={deleteQuote}
+            currencyWarning={quotesData?.summary?.currency_warning}
+          />
+        )}
       </section>
+
+      {modalOpen && (
+        <AddQuoteModal
+          rfqId={id}
+          onSuccess={fetchQuotes}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </div>
   )
 }
