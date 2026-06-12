@@ -1,4 +1,4 @@
-# Plan: Supplier Quote Management (Feature Spec 02)
+# Plan: Supplier Quote Management (Feature Spec 02) ✓ Implemented
 
 ## Context
 
@@ -84,75 +84,32 @@ app.include_router(quotes.router)
 
 ## Frontend
 
-### 5. `client/src/hooks/useQuotes.js` (new)
+### 5. `client/src/hooks/useQuotes.js` (new) ✓
 
 Fetches and mutates quotes for one RFQ. Wraps `GET /api/rfq/:id/quotes` and `DELETE /api/quote/:quoteId`.
+Returns `{ data, loading, error, fetchQuotes, deleteQuote }`.
 
-```javascript
-export function useQuotes(rfqId) {
-  // state: { data: { rfq, quotes, best_quote_id, summary } | null, loading, error }
-  // fetchQuotes() — useCallback, re-fetches and re-enriches
-  // deleteQuote(quoteId) — DELETE then fetchQuotes(); on 404 also re-fetches
-  // return { data, loading, error, fetchQuotes, deleteQuote }
-}
-```
+### 6. `client/src/hooks/useAddQuote.js` (new) ✓
 
-### 6. `client/src/hooks/useAddQuote.js` (new)
+Handles form submission for a single new quote. Returns `true` on success (used by the form to reset), `false` on failure. `onSuccess` callback is called before returning `true`.
 
-Handles form submission for a single new quote.
+### 7. `client/src/components/QuoteTable.jsx` + `QuoteTable.css` (new) ✓
 
-```javascript
-export function useAddQuote(rfqId, onSuccess) {
-  // state: loading, error (banner), fieldErrors (per-field 422)
-  // addQuote(formData) — POST, on success call onSuccess(), on 422 set fieldErrors
-  // return { addQuote, loading, error, fieldErrors }
-}
-```
+Comparison table with **client-side pagination at 10 rows per page**. Pagination controls only render when `quotes.length > 10`. Best-quote row marked with ★ prefix and accent background.
 
-`onSuccess` callback lets the page re-fetch quotes after a successful add.
+### 8. `client/src/components/AddQuoteForm.jsx` + `AddQuoteForm.css` (new) ✓
 
-### 7. `client/src/components/QuoteTable.jsx` + `QuoteTable.css` (new)
+Pure form component (no container border/padding). Currency auto-uppercases on change. Returns `true`/`false` to signal success to parent for form reset.
 
-Renders the comparison table. Props: `{ quotes, bestQuoteId, onDelete, currencyWarning }`.
+### 9. `client/src/components/AddQuoteModal.jsx` (new) ✓ — **added beyond original plan**
 
-Columns: Supplier | Unit Price | Currency | Total Price | Lead Time | Payment Terms | Remarks | Action
+Form wrapped in a 660px modal overlay. Triggered by "+ Add Quote" button in the section header. Escape key and backdrop click close it. On success, closes and calls `fetchQuotes`.
 
-- Best-quote row gets a highlight class (e.g. `.row--best`).
-- If `currencyWarning`, show an inline banner above the table.
-- "Delete" button per row — calls `onDelete(quote.id)`.
-- Empty state: "No quotes yet."
+### 10. `client/src/pages/RFQDetailPage.jsx` — update ✓
 
-### 8. `client/src/components/AddQuoteForm.jsx` + `AddQuoteForm.css` (new)
-
-Uncontrolled form below the table. Fields match `QuoteCreate`.
-
-- Currency input auto-uppercases on change.
-- Client-side blur + submit validation (mirrors spec §QUOTE-1 Validation).
-- Submit button disabled while `loading`.
-- On success: reset form to defaults (currency → "USD").
-- Inline field errors for 422; toast/banner for 500.
-
-### 9. `client/src/pages/RFQDetailPage.jsx` — update
-
-Replace the placeholder section with:
-
-```jsx
-const { data, loading: quotesLoading, error: quotesError, fetchQuotes, deleteQuote } = useQuotes(id)
-const { addQuote, loading: addLoading, error: addError, fieldErrors } = useAddQuote(id, fetchQuotes)
-
-<section className="section">
-  <h2>Supplier Quotes</h2>
-  {quotesLoading ? <div className="loading">Loading quotes…</div> : (
-    <QuoteTable
-      quotes={data?.quotes ?? []}
-      bestQuoteId={data?.best_quote_id}
-      onDelete={deleteQuote}
-      currencyWarning={data?.summary?.currency_warning}
-    />
-  )}
-  <AddQuoteForm onSubmit={addQuote} loading={addLoading} error={addError} fieldErrors={fieldErrors} />
-</section>
-```
+- Uses `useQuotes` + `AddQuoteModal` (not inline `AddQuoteForm`).
+- `RFQSummaryCard` is collapsible (collapsed: Item Name, Quantity, Delivery; expanded: all fields).
+- Section header uses `.section-header` flex layout with h2 + "Add Quote" button right-aligned.
 
 ---
 
@@ -169,6 +126,9 @@ const { addQuote, loading: addLoading, error: addError, fieldErrors } = useAddQu
 | Create | `client/src/hooks/useAddQuote.js` |
 | Create | `client/src/components/QuoteTable.jsx` + `QuoteTable.css` |
 | Create | `client/src/components/AddQuoteForm.jsx` + `AddQuoteForm.css` |
+| Create | `client/src/components/AddQuoteModal.jsx` |
+| Edit   | `client/src/components/RFQSummaryCard.jsx` — collapsible |
+| Edit   | `client/src/index.css` — `.summary-toggle`, `.section-header` |
 | Edit   | `client/src/pages/RFQDetailPage.jsx` |
 
 No DB migration needed — `supplier_quote` table exists in `001_initial_schema.sql`.

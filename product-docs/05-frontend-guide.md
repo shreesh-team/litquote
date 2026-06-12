@@ -54,11 +54,11 @@ The add-quote form and CSV import live as sections on the detail page (not separ
 
 This is the core page. It has four visual sections rendered top to bottom:
 
-**Section 1 — RFQ Summary Card**
+**Section 1 — RFQ Summary Card** *(collapsible)*
 
-Displays RFQ fields in a read-only card layout. No edit functionality (out of scope). Fields: Item Name, Material Spec, Quantity, Delivery Expectation, Notes.
+Read-only card. **Collapsed by default** — shows Item Name, Quantity, and Delivery Expectation. A "Show more ▾ / Show less ▴" toggle at the bottom of the card reveals the remaining fields: Material Spec, Notes, Quote Count, Created date.
 
-**Section 2 — Quote Comparison Table**
+**Section 2 — Quote Comparison Table** *(paginated, 10 rows/page)*
 
 | Column | Source |
 |---|---|
@@ -84,24 +84,28 @@ Warning: Quotes use mixed currencies (USD, EUR).
 Total price comparison may not be meaningful.
 ```
 
+Pagination controls (Prev / Next + "Page X of Y (N quotes)") appear only when there are more than 10 quotes.
+
 Empty state (no quotes yet):
 ```
-No quotes yet. Add a quote below or import from CSV.
+No quotes yet. Add the first quote using the button above.
 ```
 
-**Section 3 — Add Quote Form**
+**Section 3 — Add Quote** *(modal)*
 
-Inline form below the table. On submit calls `POST /api/rfq/:id/quotes`.
+A "+ Add Quote" button sits right-aligned in the "Supplier Quotes" section header. Clicking it opens a 660px modal overlay. The modal contains the quote form and a Cancel button.
 
-Fields:
+The modal closes automatically on successful submission. Escape key and clicking the backdrop also close it.
+
+Form fields:
 1. Supplier Name (text, required)
 2. Unit Price (number, required, >= 0)
-3. Currency (text, 3 chars, default "USD")
+3. Currency (text, 3 chars, default "USD", auto-uppercased)
 4. Lead Time (days) (number, optional)
 5. Payment Terms (text, optional)
 6. Remarks (textarea, optional)
 
-On success: form resets, comparison table re-fetches (or appends the returned quote directly).
+On success: form resets, modal closes, comparison table re-fetches.
 
 **Section 4 — CSV Import**
 
@@ -128,12 +132,14 @@ App
         ├── CreateRFQPage
         │   └── RFQForm
         └── RFQDetailPage
-            ├── RFQSummaryCard
-            ├── QuoteComparisonTable
-            │   ├── CurrencyWarningBanner (conditional)
-            │   ├── QuoteRow (× n, one may have best-quote styles)
-            │   └── EmptyState (if no quotes)
-            ├── AddQuoteForm
+            ├── RFQSummaryCard (collapsible)
+            ├── QuoteTable (paginated)
+            │   ├── alert-warning banner (conditional, mixed currencies)
+            │   ├── table rows (× n, best-quote row has ★ + accent bg)
+            │   ├── empty state (if no quotes)
+            │   └── pagination controls (if > 10 quotes)
+            ├── AddQuoteModal (conditional, opens on "+ Add Quote" click)
+            │   └── AddQuoteForm
             └── CSVImportSection
                 └── CSVErrorTable (conditional)
 ```
@@ -173,12 +179,22 @@ export const api = axios.create({ baseURL: '/api' })
 // On success: navigate to /rfq/:id
 ```
 
-### `useAddQuote(rfqId)`
+### `useQuotes(rfqId)`
 
 ```js
-// Returns: { addQuote(data), loading, error }
+// Returns: { data, loading, error, fetchQuotes, deleteQuote }
+// data: { rfq, quotes[], best_quote_id, summary } | null
+// Calls: GET /api/rfq/:rfqId/quotes on mount and after mutations
+// deleteQuote(quoteId): DELETE /api/quote/:quoteId then re-fetches
+```
+
+### `useAddQuote(rfqId, onSuccess)`
+
+```js
+// Returns: { addQuote(data), loading, error, fieldErrors }
 // Calls: POST /api/rfq/:rfqId/quotes
-// On success: calls refetch from useRFQ to update the table
+// Returns true on success (triggers form reset), false on failure
+// onSuccess callback fires before returning true (used to re-fetch + close modal)
 ```
 
 ### `useCSVImport(rfqId)`

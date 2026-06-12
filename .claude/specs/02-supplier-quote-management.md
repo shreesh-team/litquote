@@ -37,9 +37,9 @@ Computed fields (never stored): `total_price`, `is_best_quote`.
 
 ### QUOTE-1: Add a Quote
 
-**Trigger:** User fills and submits the Add Quote form on the RFQ detail page.
+**Trigger:** User clicks "+ Add Quote" button in the Supplier Quotes section header on `/rfq/:id`.
 
-**Location:** The form lives below the comparison table on `/rfq/:id`. It does not navigate away.
+**Location:** The form opens in a modal overlay (660px wide). On success the modal closes; the table refreshes without a page reload. Does not navigate away.
 
 **Inputs:** supplier_name, unit_price, currency, lead_time_days, payment_terms, remarks.
 
@@ -71,6 +71,8 @@ Computed fields (never stored): `total_price`, `is_best_quote`.
 Quotes are displayed in the comparison table on the RFQ detail page. See Feature Spec 03 — Quote Comparison for the full table specification.
 
 All quotes for an RFQ are fetched together via `GET /api/rfq/{rfq_id}/quotes`, which returns the quotes alongside the RFQ and summary statistics.
+
+The table is **paginated client-side at 10 rows per page**. Pagination controls (Prev / Next + "Page X of Y") appear only when there are more than 10 quotes. The best-quote row is marked with a ★ prefix and an accent background regardless of which page it lands on.
 
 ---
 
@@ -116,15 +118,15 @@ Full request/response shapes: see `product-docs/03-api-spec.md`.
 
 ## Acceptance Criteria
 
-- [ ] User can add a quote with only `supplier_name` and `unit_price`; other fields are optional
-- [ ] `unit_price = 0` is accepted and creates a valid quote with `total_price = 0`
-- [ ] `unit_price = -1` is rejected with a validation error
-- [ ] `currency = "US"` (2 chars) is rejected; `currency = "USD"` is accepted
-- [ ] `currency` input is coerced to uppercase before submission ("usd" → "USD")
-- [ ] After adding a quote, the comparison table updates without a page reload
-- [ ] Deleting a quote removes it from the table and recalculates best-quote highlighting
-- [ ] The submit button is disabled while the POST request is pending
-- [ ] Adding a quote to a non-existent RFQ returns 404 (not a 500)
+- [x] User can add a quote with only `supplier_name` and `unit_price`; other fields are optional
+- [x] `unit_price = 0` is accepted and creates a valid quote with `total_price = 0`
+- [x] `unit_price = -1` is rejected with a validation error
+- [x] `currency = "US"` (2 chars) is rejected; `currency = "USD"` is accepted
+- [x] `currency` input is coerced to uppercase before submission ("usd" → "USD")
+- [x] After adding a quote, the comparison table updates without a page reload
+- [x] Deleting a quote removes it from the table and recalculates best-quote highlighting
+- [x] The submit button is disabled while the POST request is pending
+- [x] Adding a quote to a non-existent RFQ returns 404 (not a 500)
 
 ---
 

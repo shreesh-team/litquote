@@ -41,13 +41,13 @@ createdb litquote
 
 ### Request Flow
 
-All frontend API calls use `fetch('/api/...')`. Vite proxies `/api` to `http://localhost:8000` — add the proxy to `client/vite.config.js` (not yet configured in the scaffold):
+All frontend API calls use `fetch('/api/...')`. Vite proxies `/api` to `http://localhost:8000` — configured in `client/vite.config.js`:
 
 ```js
 server: { proxy: { '/api': 'http://localhost:8000' } }
 ```
 
-This eliminates CORS in development. The CORS middleware already in `main.py` covers non-proxied access (Postman, Swagger UI).
+This eliminates CORS in development. The CORS middleware in `main.py` covers non-proxied access (Postman, Swagger UI).
 
 ### Backend Structure
 
@@ -57,11 +57,12 @@ server/
   db/connection.py         # psycopg2 ThreadedConnectionPool, get_db dependency, run_migrations
   db/migrations/           # numbered .sql files — auto-applied at startup
   routers/rfq.py           # CRUD for RFQ ✓ implemented
-  routers/quotes.py        # add/list/delete quotes (Feature Spec 02)
+  routers/quotes.py        # add/list/delete quotes ✓ implemented
   routers/csv_import.py    # multipart CSV upload (Feature Spec 04)
   models/rfq.py            # Pydantic request/response models ✓ implemented
-  models/quote.py          # (Feature Spec 02)
-  services/comparison.py   # total_price + is_best_quote computation (Feature Spec 03)
+  models/quote.py          # QuoteCreate / QuoteResponse / QuoteListResponse ✓ implemented
+  services/__init__.py     # empty package marker ✓
+  services/comparison.py   # enrich_quotes() — total_price + is_best_quote ✓ implemented
   services/csv_parser.py   # CSV parsing + per-row validation (Feature Spec 04)
 ```
 
@@ -82,18 +83,22 @@ server/
 client/src/
   api/client.js              # Axios instance, baseURL: '/api'
   components/
-    Layout.jsx / Layout.css  # persistent shell — left sidebar nav (200px) + right <Outlet />
-    CreateRFQModal.jsx/.css  # modal overlay for RFQ creation (no dedicated /rfq/new page)
-    RFQSummaryCard.jsx       # read-only RFQ detail card
+    Layout.jsx / Layout.css        # persistent shell — left sidebar nav (200px) + right <Outlet />
+    CreateRFQModal.jsx/.css        # modal overlay for RFQ creation (no dedicated /rfq/new page)
+    RFQSummaryCard.jsx             # collapsible RFQ detail card (collapsed: name/qty/delivery; expanded: all fields) ✓
+    QuoteTable.jsx / QuoteTable.css  # paginated comparison table, 10 rows/page, best-quote highlight ✓
+    AddQuoteForm.jsx / AddQuoteForm.css  # quote input form (used inside AddQuoteModal) ✓
+    AddQuoteModal.jsx              # modal wrapper for AddQuoteForm, triggered from RFQDetailPage ✓
   hooks/
     useRFQList.js            # GET /api/rfq, deleteRFQ, pagination ✓
     useCreateRFQ.js          # POST /api/rfq, 422 field-error mapping, navigate on success ✓
     useRFQ.js                # GET /api/rfq/:id ✓
-    useAddQuote.js           # POST /api/rfq/:id/quotes (Feature Spec 02)
+    useQuotes.js             # GET /api/rfq/:id/quotes, deleteQuote ✓
+    useAddQuote.js           # POST /api/rfq/:id/quotes, 422 field-error mapping, returns bool success ✓
     useCSVImport.js          # POST /api/rfq/:id/quotes/import (Feature Spec 04)
   pages/
     RFQListPage.jsx          # /rfq — table + modal trigger + sticky pagination ✓
-    RFQDetailPage.jsx        # /rfq/:id — summary card + quote sections (02/03) ✓
+    RFQDetailPage.jsx        # /rfq/:id — collapsible RFQ card, paginated quote table, Add Quote modal ✓
 ```
 
 Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage`. Create RFQ is a modal on the list page, not a separate route. State is managed with `useState` + custom hooks per page. No global state library.
@@ -103,6 +108,9 @@ Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage
 - `.page` is `flex: 1; display: flex; flex-direction: column` with no `max-width` — fills the right panel
 - `.pagination` uses `position: sticky; bottom: 0; justify-content: center`
 - `#root` boilerplate `flex-direction: column` is overridden to `row` in `index.css`
+- `.section-header` — flex row used when a section heading needs a right-aligned action button (e.g. "+ Add Quote")
+- `.summary-toggle` — button at the bottom of `.summary-card` that reveals/hides extra rows
+- `AddQuoteModal.jsx` imports `CreateRFQModal.css` directly (shared modal chrome styles)
 
 ### Environment
 

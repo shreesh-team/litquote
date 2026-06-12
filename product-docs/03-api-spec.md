@@ -234,8 +234,8 @@ This is the core comparison endpoint. It returns the full enriched quote list al
   "best_quote_id": "b8a4c3d2-1234-5678-abcd-ef1234567890",
   "summary": {
     "quote_count": 2,
-    "lowest_total": 5750.00,
-    "highest_total": 6375.00,
+    "min_total_price": 5750.00,
+    "max_total_price": 6375.00,
     "currency_warning": false
   }
 }
@@ -249,7 +249,7 @@ This is the core comparison endpoint. It returns the full enriched quote list al
 | `best_quote_id` | ID of the quote with the lowest `total_price`. `null` if no quotes exist |
 | `is_best_quote` | `true` for all quotes that tie at the lowest total (multiple can be `true`) |
 | `currency_warning` | `true` when quotes have mixed currencies — the numeric comparison is unreliable |
-| `summary.lowest_total` | The minimum `total_price` across all quotes on this RFQ |
+| `summary.min_total_price` | The minimum `total_price` across all quotes on this RFQ |
 
 **Response 404:** `{ "detail": "RFQ not found" }`
 
@@ -262,8 +262,8 @@ This is the core comparison endpoint. It returns the full enriched quote list al
   "best_quote_id": null,
   "summary": {
     "quote_count": 0,
-    "lowest_total": null,
-    "highest_total": null,
+    "min_total_price": null,
+    "max_total_price": null,
     "currency_warning": false
   }
 }

@@ -4,24 +4,25 @@
 
 ```
 server/
-├── main.py                        # app factory, lifespan, middleware, exception handlers
+├── main.py                        # app factory, lifespan, middleware, exception handlers ✓
 ├── pyproject.toml
 ├── .env
 ├── .env.example
 ├── db/
-│   ├── connection.py              # pool init, get_db dependency, run_migrations
+│   ├── connection.py              # pool init, get_db dependency, run_migrations ✓
 │   └── migrations/
-│       ├── 001_initial_schema.sql
+│       ├── 001_initial_schema.sql ✓
 │       └── 002_seed_data.sql
 ├── routers/
-│   ├── rfq.py
-│   ├── quotes.py
+│   ├── rfq.py                     # ✓ implemented
+│   ├── quotes.py                  # ✓ implemented
 │   └── csv_import.py
 ├── models/
-│   ├── rfq.py                     # Pydantic request/response models
-│   └── quote.py
+│   ├── rfq.py                     # Pydantic request/response models ✓
+│   └── quote.py                   # ✓ implemented
 └── services/
-    ├── comparison.py              # total_price + best-quote computation
+    ├── __init__.py                # empty package marker ✓
+    ├── comparison.py              # enrich_quotes() — total_price + best-quote ✓
     └── csv_parser.py              # CSV parsing and row validation
 ```
 
@@ -198,8 +199,8 @@ class QuoteResponse(QuoteCreate):
 
 class QuoteSummary(BaseModel):
     quote_count: int
-    lowest_total: Decimal | None
-    highest_total: Decimal | None
+    min_total_price: Decimal | None
+    max_total_price: Decimal | None
     currency_warning: bool
 
 class QuoteListResponse(BaseModel):
@@ -223,39 +224,37 @@ class CSVImportResult(BaseModel):
 from decimal import Decimal
 from uuid import UUID
 
-def enrich_quotes_with_comparison(
+def enrich_quotes(
     quotes: list[dict],
     rfq_quantity: Decimal,
-) -> tuple[list[dict], UUID | None, bool]:
+) -> tuple[list[dict], UUID | None]:
     """
-    Adds total_price and is_best_quote to each quote.
-    Returns: (enriched_quotes, best_quote_id, currency_warning)
+    Adds total_price and is_best_quote to each quote dict in-place.
+    Returns: (enriched_quotes, best_quote_id)
+    currency_warning is computed separately by the router from the quote set.
     """
     if not quotes:
-        return [], None, False
+        return [], None
 
     for q in quotes:
         q["total_price"] = q["unit_price"] * rfq_quantity
 
     min_total = min(q["total_price"] for q in quotes)
+    best_quote_id: UUID | None = None
 
     for q in quotes:
         q["is_best_quote"] = q["total_price"] == min_total
+        if q["is_best_quote"] and best_quote_id is None:
+            best_quote_id = q["id"]
 
-    quotes.sort(key=lambda q: q["total_price"])
-
-    best_quote_id = next(q["id"] for q in quotes if q["is_best_quote"])
-
-    currencies = {q["currency"] for q in quotes}
-    currency_warning = len(currencies) > 1
-
-    return quotes, best_quote_id, currency_warning
+    return quotes, best_quote_id
 ```
 
 Key behaviors:
 - Ties are handled correctly: multiple quotes can have `is_best_quote = True`
-- `best_quote_id` is the first (lowest total price, earliest in sort order) best quote
-- `currency_warning` is purely informational — comparison still proceeds on raw numbers
+- `best_quote_id` is the id of the first quote (in iteration order) with `is_best_quote = True`
+- `currency_warning` is computed by the router: `len({q["currency"] for q in quotes}) > 1`
+- Quotes are returned in `created_at ASC` order (insertion order from the DB query)
 - This function is pure (no DB access) — straightforward to unit test
 
 ---
@@ -442,7 +441,7 @@ from psycopg2.extensions import connection as Connection
 from decimal import Decimal
 from db.connection import get_db
 from models.quote import QuoteCreate, QuoteResponse, QuoteListResponse
-from services.comparison import enrich_quotes_with_comparison
+from services.comparison import enrich_quotes
 
 router = APIRouter(tags=["quotes"])
 
@@ -474,7 +473,7 @@ def add_quote(rfq_id: str, body: QuoteCreate, db: Connection = Depends(get_db)):
         cols = [d.name for d in cur.description]
         all_quotes = [dict(zip(cols, r)) for r in cur.fetchall()]
 
-    enriched, _, _ = enrich_quotes_with_comparison(all_quotes, rfq["quantity"])
+    enriched, _, _ = enrich_quotes(all_quotes, rfq["quantity"])
     return next(q for q in enriched if q["id"] == quote["id"])
 
 @router.get("/rfq/{rfq_id}/quotes", response_model=QuoteListResponse)
@@ -485,8 +484,9 @@ def list_quotes(rfq_id: str, db: Connection = Depends(get_db)):
         cols = [d.name for d in cur.description]
         quotes = [dict(zip(cols, r)) for r in cur.fetchall()]
 
-    enriched, best_id, currency_warn = enrich_quotes_with_comparison(quotes, rfq["quantity"])
+    enriched, best_id = enrich_quotes(quotes, rfq["quantity"])
     totals = [q["total_price"] for q in enriched]
+    currencies = {q["currency"] for q in enriched}
 
     return {
         "rfq": {**rfq, "quote_count": len(enriched)},
@@ -494,9 +494,9 @@ def list_quotes(rfq_id: str, db: Connection = Depends(get_db)):
         "best_quote_id": best_id,
         "summary": {
             "quote_count": len(enriched),
-            "lowest_total": min(totals) if totals else None,
-            "highest_total": max(totals) if totals else None,
-            "currency_warning": currency_warn,
+            "min_total_price": min(totals) if totals else None,
+            "max_total_price": max(totals) if totals else None,
+            "currency_warning": len(currencies) > 1,
         }
     }
 
@@ -517,7 +517,7 @@ from psycopg2.extensions import connection as Connection
 from db.connection import get_db
 from models.quote import CSVImportResult
 from services.csv_parser import parse_csv
-from services.comparison import enrich_quotes_with_comparison
+from services.comparison import enrich_quotes
 
 router = APIRouter(tags=["csv"])
 
@@ -568,7 +568,7 @@ async def import_quotes_csv(
             cur.execute("SELECT * FROM supplier_quote WHERE rfq_id = %s", (rfq_id,))
             _cols = [d.name for d in cur.description]
             all_quotes = [dict(zip(_cols, r)) for r in cur.fetchall()]
-        enriched, _, _ = enrich_quotes_with_comparison(all_quotes, rfq["quantity"])
+        enriched, _, _ = enrich_quotes(all_quotes, rfq["quantity"])
         inserted = enriched  # all quotes, not just new ones — client will reconcile
 
     return {
