@@ -79,6 +79,12 @@ server/
 - `currency_warning` — `True` when an RFQ's quotes have more than one distinct currency code; the comparison table shows a warning banner but still renders
 - Quote `source` field — `"manual"` for form-entered quotes, `"csv"` for imported ones
 - CSV dedup key — `(supplier_name, unit_price, currency)`; within-file duplicates are silently skipped (first wins); DB-level duplicates are rejected with a row-level error message
+- RFQ status lifecycle: `open` → `awarded` (via `/award`) → `void` (via `/void`); `open` → `void` also allowed; `void` is terminal
+- Status changes only via `/award` and `/void` endpoints; `PUT /api/rfq/:id` has **no** status field
+- Lock rule: `awarded` and `void` RFQs reject all quote mutations (add/edit/delete/CSV import) with 409; RFQ fields also non-editable
+- `is_awarded` — `True` for the single quote matching `rfq.awarded_quote_id`
+- psycopg2 UUID gotcha: columns returned as plain strings; FastAPI path params are `UUID` objects — always compare with `str()`
+- StopIteration gotcha: `next(genexpr)` raises `StopIteration` → `RuntimeError` in anyio threadpool; always use `next((genexpr), None)`
 
 ### Frontend Structure
 
@@ -88,21 +94,28 @@ client/src/
   components/
     Layout.jsx / Layout.css        # persistent shell — left sidebar nav (200px) + right <Outlet />
     CreateRFQModal.jsx/.css        # modal overlay for RFQ creation (no dedicated /rfq/new page)
-    RFQSummaryCard.jsx             # collapsible RFQ detail card (collapsed: name/qty/delivery; expanded: all fields) ✓
-    QuoteTable.jsx / QuoteTable.css  # paginated comparison table, 10 rows/page, best-quote highlight + delivery risk badge ✓
-    AddQuoteForm.jsx / AddQuoteForm.css  # quote input form (used inside AddQuoteModal) ✓
-    AddQuoteModal.jsx              # modal wrapper for AddQuoteForm, triggered from RFQDetailPage ✓
+    RFQSummaryCard.jsx             # compact horizontal metadata strip — columns (label/value), no toggle ✓
+    QuoteTable.jsx / QuoteTable.css  # paginated comparison table, 10 rows/page, best/awarded highlights, lock-aware ✓
+    AddQuoteForm.jsx / AddQuoteForm.css  # quote input form; accepts initialValues prop for edit pre-population ✓
+    AddQuoteModal.jsx              # modal wrapper for AddQuoteForm ✓
+    EditRFQModal.jsx               # pre-populated RFQ edit form (open RFQs only; no status field) ✓
+    EditQuoteModal.jsx             # wraps AddQuoteForm with initialValues for quote editing ✓
     CSVImportModal.jsx             # modal for CSV bulk import — file picker, result banner, error table ✓
+    ConfirmModal.jsx               # reusable confirm dialog; replaces all window.confirm usage ✓
   hooks/
-    useRFQList.js            # GET /api/rfq, deleteRFQ, pagination ✓
+    useRFQList.js            # GET /api/rfq?search=, deleteRFQ, pagination ✓
     useCreateRFQ.js          # POST /api/rfq, 422 field-error mapping, navigate on success ✓
-    useRFQ.js                # GET /api/rfq/:id ✓
+    useRFQ.js                # GET /api/rfq/:id; exposes setRFQ for local state updates ✓
+    useEditRFQ.js            # PUT /api/rfq/:id ✓
     useQuotes.js             # GET /api/rfq/:id/quotes, deleteQuote ✓
-    useAddQuote.js           # POST /api/rfq/:id/quotes, 422 field-error mapping, returns bool success ✓
-    useCSVImport.js          # POST /api/rfq/:id/quotes/import — returns { importing, result, error, importCSV, reset } ✓
+    useAddQuote.js           # POST /api/rfq/:id/quotes, 422 field-error mapping ✓
+    useEditQuote.js          # PUT /api/quote/:id ✓
+    useAwardQuote.js         # POST /api/rfq/:id/award ✓
+    useVoidRFQ.js            # POST /api/rfq/:id/void ✓
+    useCSVImport.js          # POST /api/rfq/:id/quotes/import ✓
   pages/
-    RFQListPage.jsx          # /rfq — table + modal trigger + sticky pagination ✓
-    RFQDetailPage.jsx        # /rfq/:id — RFQ card, quote table, Add Quote modal, Upload Quotes (CSV) modal ✓
+    RFQListPage.jsx          # /rfq — search bar, status badges, table, ConfirmModal for delete ✓
+    RFQDetailPage.jsx        # /rfq/:id — metadata strip, InsightBanner, Edit/Void buttons, quote table ✓
 ```
 
 Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage`. Create RFQ is a modal on the list page, not a separate route. State is managed with `useState` + custom hooks per page. No global state library.
@@ -112,10 +125,12 @@ Routes: `/` → redirect `/rfq` → `RFQListPage`, `/rfq/:id` → `RFQDetailPage
 - `.page` is `flex: 1; display: flex; flex-direction: column` with no `max-width` — fills the right panel
 - `.pagination` uses `position: sticky; bottom: 0; justify-content: center`
 - `#root` boilerplate `flex-direction: column` is overridden to `row` in `index.css`
-- `.section-header` — flex row used when a section heading needs a right-aligned action button (e.g. "+ Add Quote")
-- `.summary-toggle` — button at the bottom of `.summary-card` that reveals/hides extra rows
-- `AddQuoteModal.jsx` and `CSVImportModal.jsx` both import `CreateRFQModal.css` (shared modal chrome styles)
-- `RFQDetailPage` section header has two buttons: "Upload Quotes" (opens `CSVImportModal`) and "+ Add Quote" (opens `AddQuoteModal`)
+- `.section-header` — flex row used when a section heading needs a right-aligned action button(s)
+- `.rfq-meta-strip` — horizontal flex container for the RFQ metadata strip; no overflow hidden (would clip tooltips)
+- `.rfq-meta-item` — column layout (label/value); `position: relative` for tooltip anchor; `flex: 1` on spec/notes items
+- `.rfq-meta-value--truncate[data-tooltip]::after` — CSS tooltip, fixed 280px, appears below on hover
+- `AddQuoteModal.jsx`, `EditRFQModal.jsx`, `EditQuoteModal.jsx`, and `CSVImportModal.jsx` all import `CreateRFQModal.css` (shared modal chrome)
+- `RFQDetailPage` section header shows "↑ Upload CSV" and "+ Add Quote" only when `rfq.status === 'open'`
 
 ### Environment
 

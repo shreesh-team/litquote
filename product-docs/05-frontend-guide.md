@@ -2,16 +2,15 @@
 
 ## Routing Structure
 
-Using React Router v7. Add it to dependencies: `npm install react-router`.
+Using React Router v7.
 
 | Route | Component | Purpose |
 |---|---|---|
 | `/` | redirect | Redirects to `/rfq` |
 | `/rfq` | `RFQListPage` | Browse all RFQs |
-| `/rfq/new` | `CreateRFQPage` | Create a new RFQ |
-| `/rfq/:id` | `RFQDetailPage` | View RFQ, add quotes, compare, import CSV |
+| `/rfq/:id` | `RFQDetailPage` | View RFQ, manage quotes, compare, import CSV |
 
-The add-quote form and CSV import live as sections on the detail page (not separate routes). This keeps the comparison workflow fluid — the user never navigates away from the table to add data to it.
+Create RFQ is a modal on the list page — not a separate route. State is managed with `useState` + custom hooks per page. No global state library.
 
 ---
 
@@ -19,103 +18,92 @@ The add-quote form and CSV import live as sections on the detail page (not separ
 
 ### `RFQListPage` — `/rfq`
 
-**Data:** `GET /api/rfq` on mount.
+**Data:** `GET /api/rfq` on mount and after mutations.
 
 **Layout:**
-- Page header: "Requests for Quotation" + "Create New RFQ" button (top right)
-- RFQ table with columns: Item Name | Quantity | Delivery | Quotes | Created | Actions
-- "Actions" column: "View" link navigates to `/rfq/:id`; "Delete" triggers `DELETE /api/rfq/:id` with confirmation dialog
-- Empty state (no RFQs yet): centered message "No RFQs yet." with a "Create your first RFQ" call-to-action button
-- Loading state: skeleton rows or spinner
-- Error state: inline error message with a retry button
-
----
-
-### `CreateRFQPage` — `/rfq/new`
-
-**Data:** `POST /api/rfq` on submit.
-
-**Layout:**
-- Back link: "← All RFQs"
-- Page header: "New Request for Quotation"
-- Form fields (in order):
-  1. Item Name (text input, required)
-  2. Material / Specification (textarea, optional)
-  3. Quantity (number input, required, min > 0)
-  4. Delivery Expectation (date input, optional)
-  5. Notes (textarea, optional)
-- Submit button: "Create RFQ" (disabled while loading)
-- On success: navigate to `/rfq/{new_id}` — user lands directly on the detail page
-- On 422 from API: display field-level error messages beneath each offending input
+- Page header: "Request for Quotations" + "+ New RFQ" button
+- Search bar: text input debounced 300ms; passes `?search=` query param; resets offset to 0 on change
+- RFQ table: Item Name | Status | Quantity | Delivery By | Quotes | Created | Actions
+- Status column: badge showing `open` / `awarded` / `void`
+- Actions per row: "View" link → `/rfq/:id`; "Delete" → opens `ConfirmModal`
+- Empty state: different message when search has no results vs. no RFQs at all
+- Sticky pagination: Previous / Next + "X–Y of N RFQs"
 
 ---
 
 ### `RFQDetailPage` — `/rfq/:id`
 
-This is the core page. It has four visual sections rendered top to bottom:
+This is the core page. Layout top to bottom:
 
-**Section 1 — RFQ Summary Card** *(collapsible)*
+**Page header**
+- Back link: "← RFQs"
+- `<h1>` with item name
+- `StatusBadge` (open / awarded / void)
+- "Edit RFQ" button — visible only when `status === 'open'`
+- "Void RFQ" button (danger) — visible when `status !== 'void'`; opens `ConfirmModal` with contextual message
 
-Read-only card. **Collapsed by default** — shows Item Name, Quantity, and Delivery Expectation. A "Show more ▾ / Show less ▴" toggle at the bottom of the card reveals the remaining fields: Material Spec, Notes, Quote Count, Created date.
+**RFQ metadata strip** (`RFQSummaryCard`)
 
-**Section 2 — Quote Comparison Table** *(paginated, 10 rows/page)*
+A compact horizontal strip of column-layout fields. No toggle, always fully visible. Fields: Quantity | Delivery By | Material Spec | Notes | Created. Item name is omitted (already the page `<h1>`). `material_spec` and `notes` columns flex to fill remaining space; long text is truncated with a CSS tooltip on hover (appears below, 280px wide).
 
-| Column | Source |
-|---|---|
-| Supplier | `quote.supplier_name` |
-| Unit Price | `quote.unit_price` (formatted with currency symbol) |
-| Currency | `quote.currency` |
-| Total Price | `quote.total_price` (bold if best) |
-| Lead Time | `quote.lead_time_days` days |
-| Payment Terms | `quote.payment_terms` |
-| Remarks | `quote.remarks` |
-| Source | Badge: "Manual" or "CSV" |
-| Actions | Delete button |
+**Supplier Quotes section**
 
-Best-quote row styling:
-- Row background: `#f0fdf4` (light green)
-- Left border: `4px solid #22c55e`
-- "Best Price" badge in the Supplier cell (green pill)
-- Total Price cell: bold + green text
+- Section header: "Supplier Quotes" + "↑ Upload CSV" + "+ Add Quote" buttons (hidden when `status !== 'open'`)
+- Lock notices:
+  - Awarded: "🔒 This RFQ has been awarded and is locked. Void it to reject the decision."
+  - Void: "🚫 This RFQ has been voided and is closed."
+- `InsightBanner` (inline component, shown when quotes exist):
+  - Awarded state: "✓ Awarded to [Supplier] — [Currency] [Total] · ⚠ Delivery risk (if applicable)"
+  - Open state: "★ Best option: [Supplier] at [Currency] [Total] · saves [Amount] vs. next best · ⚠ Delivery risk / Delivers on time"
+- `QuoteTable` — paginated comparison table
 
-Currency warning banner (renders above the table if `summary.currency_warning === true`):
-```
-Warning: Quotes use mixed currencies (USD, EUR). 
-Total price comparison may not be meaningful.
-```
+---
 
-Pagination controls (Prev / Next + "Page X of Y (N quotes)") appear only when there are more than 10 quotes.
+## Component Inventory
 
-Empty state (no quotes yet):
-```
-No quotes yet. Add the first quote using the button above.
-```
+### `RFQSummaryCard`
 
-**Section 3 — Add Quote** *(modal)*
+Compact horizontal metadata strip. No state, no toggle. Each field rendered as a column (label above, value below). `material_spec` and `notes` have `flex: 1` so they absorb available width. Long values shown with `text-overflow: ellipsis` + a CSS `::after` tooltip (fixed 280px width, appears below on hover).
 
-A "+ Add Quote" button sits right-aligned in the "Supplier Quotes" section header. Clicking it opens a 660px modal overlay. The modal contains the quote form and a Cancel button.
+### `QuoteTable`
 
-The modal closes automatically on successful submission. Escape key and clicking the backdrop also close it.
+Props: `quotes`, `rfq`, `onDelete`, `onAward`, `onRefresh`, `currencyWarning`
 
-Form fields:
-1. Supplier Name (text, required)
-2. Unit Price (number, required, >= 0)
-3. Currency (text, 3 chars, default "USD", auto-uppercased)
-4. Lead Time (days) (number, optional)
-5. Payment Terms (text, optional)
-6. Remarks (textarea, optional)
+- `isLocked = rfq?.status !== 'open'` — when true, Award / Edit / Delete buttons are all hidden
+- Awarded quote row gets `.row--awarded` class (gold accent)
+- `is_awarded` quote shows "Awarded" badge; `is_best_quote` shows "Best Price" badge (only when not awarded)
+- Award button → `ConfirmModal` (non-danger) → calls `onAward(quoteId)`
+- Edit button → `EditQuoteModal`
+- Delete button → `ConfirmModal` (danger) → calls `onDelete(quoteId)`
+- `delivery_risk` → "Late delivery risk" badge on lead time cell
+- Currency warning banner above table when `currencyWarning === true`
+- Client-side pagination at 10 rows/page
 
-On success: form resets, modal closes, comparison table re-fetches.
+### `ConfirmModal`
 
-**Section 4 — CSV Import**
+Props: `message`, `onConfirm`, `onCancel`, `confirmLabel='Delete'`, `danger=true`
 
-File input (`.csv` only) + "Import Quotes" button.
+Reusable confirmation dialog. Uses `.modal-backdrop` / `.modal` chrome from `CreateRFQModal.css`. Replaces all `window.confirm` usage.
 
-Below the import button: a "Download sample CSV" link that triggers a blob download of the sample format defined in `04-csv-format.md`.
+### `EditRFQModal`
 
-After import:
-- Summary banner: "4 quotes imported. 1 row failed."
-- Error table (if any errors): Row | Field | Value | Error
+Props: `rfq`, `onClose`, `onSuccess(updatedRfq)`
+
+Pre-populated edit form for open RFQs. Fields: item_name, material_spec, quantity, delivery_expectation, notes. No status field — status is managed via dedicated endpoints only. Only accessible when `rfq.status === 'open'`.
+
+### `EditQuoteModal`
+
+Props: `quote`, `onClose`, `onSuccess()`
+
+Wraps `AddQuoteForm` with `initialValues={quote}`. Uses `useEditQuote`.
+
+### `AddQuoteForm`
+
+Accepts `initialValues` prop (used by `EditQuoteModal` to pre-populate). Defaults to empty/USD when not provided.
+
+### `CreateRFQModal`, `AddQuoteModal`, `CSVImportModal`
+
+Modal overlays for create / add / bulk import flows. `AddQuoteModal` and `CSVImportModal` share `CreateRFQModal.css` for modal chrome.
 
 ---
 
@@ -124,59 +112,49 @@ After import:
 ```
 App
 └── BrowserRouter
-    └── Layout (navbar: "litquote" brand + "All RFQs" link)
+    └── Layout (sidebar nav + <Outlet />)
         ├── RFQListPage
-        │   ├── RFQTable
-        │   │   └── RFQRow (× n)
-        │   └── EmptyState
-        ├── CreateRFQPage
-        │   └── RFQForm
+        │   ├── search input (debounced)
+        │   ├── RFQ table (with status badges)
+        │   ├── CreateRFQModal (conditional)
+        │   └── ConfirmModal (delete RFQ, conditional)
         └── RFQDetailPage
-            ├── RFQSummaryCard (collapsible)
+            ├── StatusBadge
+            ├── EditRFQModal (conditional, open RFQs only)
+            ├── ConfirmModal (void RFQ, conditional)
+            ├── RFQSummaryCard (horizontal meta strip)
+            ├── InsightBanner (conditional, when quotes exist)
             ├── QuoteTable (paginated)
-            │   ├── alert-warning banner (conditional, mixed currencies)
-            │   ├── table rows (× n, best-quote row has ★ + accent bg)
-            │   ├── empty state (if no quotes)
-            │   └── pagination controls (if > 10 quotes)
-            ├── AddQuoteModal (conditional, opens on "+ Add Quote" click)
-            │   └── AddQuoteForm
-            └── CSVImportSection
-                └── CSVErrorTable (conditional)
+            │   ├── currency warning banner (conditional)
+            │   ├── table rows with Award / Edit / Delete actions
+            │   ├── ConfirmModal (delete / award quote, conditional)
+            │   ├── EditQuoteModal (conditional)
+            │   └── empty state (if no quotes)
+            ├── AddQuoteModal (conditional)
+            └── CSVImportModal (conditional)
 ```
 
 ---
 
 ## Custom Hooks
 
-All API communication goes through `src/api/client.js` — a single axios instance:
-
-```js
-// src/api/client.js
-import axios from 'axios'
-export const api = axios.create({ baseURL: '/api' })
-```
+All API calls go through `src/api/client.js` — a single axios instance with `baseURL: '/api'`.
 
 ### `useRFQList()`
 
 ```js
-// Returns: { rfqs, total, loading, error, refetch }
-// Calls: GET /api/rfq
+// Returns: { rfqs, total, offset, limit, loading, error, refetch, deleteRFQ, goToPage }
+// GET /api/rfq?limit=20&offset=N&search=...
+// deleteRFQ(id, search): DELETE /api/rfq/:id then refetch
+// goToPage(offset, search): update offset + search params
 ```
 
 ### `useRFQ(id)`
 
 ```js
-// Returns: { rfq, quotes, bestQuoteId, summary, loading, error, refetch }
-// Calls: GET /api/rfq/:id/quotes
-// Note: also fetches the rfq detail embedded in that response
-```
-
-### `useCreateRFQ()`
-
-```js
-// Returns: { createRFQ(data), loading, error }
-// Calls: POST /api/rfq
-// On success: navigate to /rfq/:id
+// Returns: { rfq, loading, error, setRFQ }
+// GET /api/rfq/:id
+// setRFQ: allows parent to update local rfq state after award/void/edit
 ```
 
 ### `useQuotes(rfqId)`
@@ -184,121 +162,104 @@ export const api = axios.create({ baseURL: '/api' })
 ```js
 // Returns: { data, loading, error, fetchQuotes, deleteQuote }
 // data: { rfq, quotes[], best_quote_id, summary } | null
-// Calls: GET /api/rfq/:rfqId/quotes on mount and after mutations
-// deleteQuote(quoteId): DELETE /api/quote/:quoteId then re-fetches
+// GET /api/rfq/:rfqId/quotes on mount and after mutations
+```
+
+### `useCreateRFQ()`
+
+```js
+// Returns: { createRFQ(data), loading, error, fieldErrors }
+// POST /api/rfq → navigate to /rfq/:id on success
+```
+
+### `useEditRFQ()`
+
+```js
+// Returns: { editRFQ(id, data), loading, error, fieldErrors }
+// PUT /api/rfq/:id — returns updated RFQResponse
 ```
 
 ### `useAddQuote(rfqId, onSuccess)`
 
 ```js
 // Returns: { addQuote(data), loading, error, fieldErrors }
-// Calls: POST /api/rfq/:rfqId/quotes
-// Returns true on success (triggers form reset), false on failure
-// onSuccess callback fires before returning true (used to re-fetch + close modal)
+// POST /api/rfq/:rfqId/quotes
+```
+
+### `useEditQuote()`
+
+```js
+// Returns: { editQuote(id, data), loading, error, fieldErrors }
+// PUT /api/quote/:id — returns updated QuoteResponse
+```
+
+### `useAwardQuote()`
+
+```js
+// Returns: { awardQuote(rfqId, quoteId), loading, error }
+// POST /api/rfq/:rfqId/award — returns updated RFQResponse
+```
+
+### `useVoidRFQ()`
+
+```js
+// Returns: { voidRFQ(rfqId), loading, error }
+// POST /api/rfq/:rfqId/void — returns updated RFQResponse
 ```
 
 ### `useCSVImport(rfqId)`
 
 ```js
-// Returns: { importCSV(file), result, loading, error }
-// Calls: POST /api/rfq/:rfqId/quotes/import (multipart)
+// Returns: { importCSV(file), result, loading, error, reset }
+// POST /api/rfq/:rfqId/quotes/import (multipart)
 // result: { imported, failed, errors, quotes }
+```
+
+---
+
+## Layout Notes
+
+- `#root`: `flex-direction: row` (overrides Vite boilerplate column)
+- `.content`: `height: 100svh; overflow-y: auto` — the scroll container; sticky pagination relies on this
+- `.page`: `flex: 1; display: flex; flex-direction: column` with no `max-width`
+- `.pagination`: `position: sticky; bottom: 0; justify-content: center`
+- `.section-header`: flex row for section heading + right-aligned action button(s)
+- `AddQuoteModal` and `CSVImportModal` import `CreateRFQModal.css` (shared modal chrome)
+
+---
+
+## Status Badge CSS
+
+```css
+.rfq-status-badge          /* base chip */
+.rfq-status-badge.status-open      /* neutral grey */
+.rfq-status-badge.status-awarded   /* green */
+.rfq-status-badge.status-void      /* muted grey + line-through */
 ```
 
 ---
 
 ## Form Validation
 
-Client-side validation mirrors server-side rules. Validation fires **on blur** (not on every keystroke) and on submit.
+Client-side validation mirrors server-side rules. Fires on blur and on submit.
 
-| Field | Rule | Error Message |
+| Field | Rule | Error |
 |---|---|---|
-| `item_name` | Non-empty | "Item name is required" |
-| `quantity` | `parseFloat > 0` | "Quantity must be greater than 0" |
-| `supplier_name` | Non-empty | "Supplier name is required" |
-| `unit_price` | `parseFloat >= 0` | "Unit price must be 0 or greater" |
+| `item_name` | Non-empty | "Item name is required." |
+| `quantity` | `parseFloat > 0` | "Quantity must be a positive number." |
+| `supplier_name` | Non-empty | "Supplier name is required." |
+| `unit_price` | `parseFloat >= 0` | "Unit price must be 0 or greater." |
 | `currency` | Exactly 3 letters | "Currency must be a 3-letter code (e.g., USD)" |
 
-The submit button is disabled while `loading === true` to prevent double-submission.
-
-Field-level API errors (from 422 responses) are mapped back to individual inputs using the `loc` array in the Pydantic error response.
+Submit button disabled while `loading === true`. Field-level 422 errors are mapped back to inputs via the `loc` array in the Pydantic error response.
 
 ---
 
-## Styling
-
-- **No CSS framework** — plain CSS with CSS custom properties. Keeps the dependency count low and the code readable for evaluators.
-- **System font stack:** `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
-- **Color palette (CSS variables in `index.css`):**
-
-```css
-:root {
-  --color-primary: #2563eb;
-  --color-success: #22c55e;
-  --color-success-bg: #f0fdf4;
-  --color-warning: #f59e0b;
-  --color-warning-bg: #fffbeb;
-  --color-danger: #ef4444;
-  --color-border: #e5e7eb;
-  --color-text: #111827;
-  --color-text-muted: #6b7280;
-  --color-bg: #ffffff;
-  --color-bg-alt: #f9fafb;
-}
-```
-
-- **Comparison table:** horizontally scrollable on small screens (`overflow-x: auto` on a wrapper div)
-- **Best quote row CSS:**
-
-```css
-.quote-row--best {
-  background-color: var(--color-success-bg);
-  border-left: 4px solid var(--color-success);
-}
-
-.badge-best {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background-color: var(--color-success);
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: 8px;
-}
-```
-
-- **No animations, no transitions** — keeps the implementation focused on the assignment's evaluation criteria
-
----
-
-## Vite Proxy Configuration
-
-Update `client/vite.config.js`:
+## Vite Proxy
 
 ```js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:8000'
-    }
-  }
-})
+// client/vite.config.js
+server: { proxy: { '/api': 'http://localhost:8000' } }
 ```
 
-This eliminates the need for CORS in development. All `api.get('/rfq')` calls transparently route to `http://localhost:8000/api/rfq`.
-
----
-
-## Dependencies to Add
-
-```bash
-cd client
-npm install react-router axios
-```
-
-No other new dependencies are needed. React 19 and Vite 8 are already in `package.json`.
+All `fetch('/api/...')` calls proxy to the FastAPI backend in development. Eliminates CORS in dev.

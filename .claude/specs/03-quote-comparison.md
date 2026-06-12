@@ -2,16 +2,18 @@
 
 ## Overview
 
-The quote comparison table is the core value-delivery feature of litquote. It gives procurement users a single, clear view of all supplier quotes for an RFQ, automatically identifies the best (lowest total price) offer, and warns when cross-currency comparisons may be unreliable.
+The quote comparison table is the core value-delivery feature of litquote. It gives procurement users a clear view of all supplier quotes for an RFQ, automatically identifies the best offer, flags delivery risk, shows an insight banner summarising the key decision, and records the final award.
 
 ## User Stories
 
 | ID | As a... | I want to... | So that... |
 |---|---|---|---|
-| CMP-1 | procurement user | see all quotes for an RFQ side by side in a table | I can compare them at a glance |
-| CMP-2 | procurement user | have the cheapest quote automatically highlighted | I don't have to manually scan and calculate |
+| CMP-1 | procurement user | see all quotes side by side in a table | I can compare them at a glance |
+| CMP-2 | procurement user | have the cheapest quote automatically highlighted | I don't have to scan and calculate manually |
 | CMP-3 | procurement user | see the computed total price for each quote | I don't have to multiply unit price × quantity myself |
 | CMP-4 | procurement user | be warned when quotes use different currencies | I know when the comparison is not apples-to-apples |
+| CMP-5 | procurement user | see a delivery risk flag | I know which quotes may arrive too late |
+| CMP-6 | procurement user | see an insight banner above the table | I get the key recommendation without reading every row |
 
 ---
 
@@ -19,159 +21,138 @@ The quote comparison table is the core value-delivery feature of litquote. It gi
 
 ### CMP-1: Quote Comparison Table
 
-**Location:** Second section on the RFQ detail page (`/rfq/:id`), below the RFQ summary card.
+**Location:** Supplier Quotes section on `/rfq/:id`, below the metadata strip.
 
-**Data source:** `GET /api/rfq/{rfq_id}/quotes` — fetched on page load and after every add/delete/import action.
+**Data source:** `GET /api/rfq/{rfq_id}/quotes` — fetched on load and after every mutation.
 
-**Columns (in order):**
+**Columns:**
 
 | Column | Field | Notes |
 |---|---|---|
-| Supplier | `supplier_name` | May include a "Best Price" badge |
-| Unit Price | `unit_price` | Formatted with two decimal places |
-| Currency | `currency` | Three-letter code (e.g., USD) |
-| Total Price | `total_price` | Bold; green if best quote |
-| Lead Time | `lead_time_days` | Displayed as "14 days"; blank if null |
-| Payment Terms | `payment_terms` | Blank if null |
-| Remarks | `remarks` | Truncated at 80 chars with ellipsis if longer |
-| Source | `source` | Pill badge: "Manual" (grey) or "CSV" (blue) |
-| Actions | — | Delete button per row |
+| Supplier | `supplier_name` | "Awarded" badge when `is_awarded`; "Best Price" badge when `is_best_quote` and not awarded |
+| Unit Price | `unit_price` | 2 decimal places |
+| Currency | `currency` | 3-letter code |
+| Total Price | `total_price` | Bold; green if best; gold if awarded |
+| Lead Time | `lead_time_days` | "14 days"; "—" if null; "Late delivery risk" badge if `delivery_risk` |
+| Payment Terms | `payment_terms` | "—" if null |
+| Remarks | `remarks` | "—" if null |
+| Source | `source` | Pill badge: "Manual" or "CSV" |
+| Actions | — | Award / Edit / Delete buttons (hidden when RFQ is locked) |
 
-**Default sort:** `total_price` ascending (cheapest first). Sort is applied server-side; the API always returns quotes sorted this way.
+**Sort:** `total_price` ASC server-side; ties broken by `lead_time_days` ASC (null last).
 
-**Empty state:** When an RFQ has no quotes, display:
-```
-No quotes yet. Add a quote below or import from CSV.
-```
+**Pagination:** Client-side, 10 rows/page. Prev / Next + "Page X of Y (N quotes)" shown only when > 10 quotes.
 
-**Loading state:** Spinner or skeleton rows while fetching.
-
-**Responsive behavior:** On viewports narrower than 768px, the table scrolls horizontally. No columns are hidden.
+**Empty state:** "No quotes yet. Add a quote manually or import from CSV to start comparing."
 
 ---
 
 ### CMP-2: Best Quote Highlighting
 
-**Definition:** The best quote is the one with the lowest `total_price`. If multiple quotes tie at the same lowest total, all tied quotes are highlighted.
+The best quote is the one with the lowest `total_price`. Ties: all tied quotes are highlighted.
 
-**Visual treatment for the best-quote row:**
+**Row class:** `.row--best` (when `is_best_quote && !is_awarded`)
 
-| Element | Style |
-|---|---|
-| Row background | `#f0fdf4` (light green) |
-| Left border | `4px solid #22c55e` (green) |
-| Total Price cell | Bold weight + `#15803d` (dark green) text |
-| Supplier cell | Appended "Best Price" pill badge (green) |
+**Awarded row class:** `.row--awarded` (when `is_awarded`; takes visual priority)
 
-The `is_best_quote` boolean and `best_quote_id` are computed and returned by the API — the frontend does not implement any comparison logic. It applies styles only to rows where `quote.is_best_quote === true`.
-
-**Dynamic recalculation:** Every time a quote is added, deleted, or imported, the frontend re-fetches the quote list. The best-quote highlight always reflects the current state of all quotes.
+The frontend applies styles based on `quote.is_best_quote` and `quote.is_awarded` — it never computes comparisons itself.
 
 ---
 
-### CMP-3: Total Price Computation
+### CMP-3: Total Price
 
-**Formula:** `total_price = unit_price × rfq.quantity`
-
-This is computed in the backend service layer (`services/comparison.py`) and returned as a field on every quote object. The frontend never performs this multiplication — it only displays the value.
-
-**Precision:** `total_price` is returned as a decimal with up to 4 decimal places. Display it formatted to 2 decimal places in the UI.
+`total_price = unit_price × rfq.quantity` — computed server-side, never stored. Displayed to 2 decimal places.
 
 ---
 
 ### CMP-4: Currency Warning
 
-**Trigger:** Displayed when `summary.currency_warning === true` in the API response. This flag is `true` when quotes on the same RFQ have at least two distinct currency values.
-
-**Display:** A warning banner above the comparison table:
+When `summary.currency_warning === true` (quotes span ≥ 2 distinct currencies), a warning banner renders above the table:
 
 ```
 ⚠ Quotes use mixed currencies. Total price comparison may not be meaningful.
 ```
 
-**Style:** Yellow background (`#fffbeb`), amber border (`#f59e0b`), amber text.
-
-**Behavior:** The comparison table still renders normally — the warning is informational only. The best-quote highlight still appears (the system compares raw numeric values; the user is responsible for interpreting the result).
+Table still renders; best-quote highlight still appears.
 
 ---
 
-## Data Contract
+### CMP-5: Delivery Risk
 
-The comparison endpoint returns a single enriched response:
+`delivery_risk = today + lead_time_days > rfq.delivery_expectation`
 
-```json
-{
-  "rfq": { "id": "...", "item_name": "...", "quantity": 500, ... },
-  "quotes": [
-    {
-      "id": "...",
-      "supplier_name": "Global Steel",
-      "unit_price": 11.50,
-      "currency": "USD",
-      "lead_time_days": 21,
-      "payment_terms": "Net 45",
-      "remarks": "FOB origin",
-      "source": "manual",
-      "total_price": 5750.00,
-      "is_best_quote": true,
-      "created_at": "..."
-    }
-  ],
-  "best_quote_id": "...",
-  "summary": {
-    "quote_count": 3,
-    "lowest_total": 5750.00,
-    "highest_total": 6600.00,
-    "currency_warning": false
-  }
-}
+- `false` if either `lead_time_days` or `delivery_expectation` is null
+- Shown as a "Late delivery risk" badge on the lead time cell
+- Also surfaced in the InsightBanner
+
+---
+
+### CMP-6: Insight Banner
+
+Rendered above the table whenever quotes exist (not shown when quote list is empty).
+
+**Awarded state:**
+```
+✓ Awarded to [Supplier] — [Currency] [Total] · ⚠ Delivery risk   (if applicable)
 ```
 
-Full spec: `product-docs/03-api-spec.md`.
+**Open state (best quote exists):**
+```
+★ Best option: [Supplier] at [Currency] [Total] · saves [Currency] [Amount] vs. next best · ⚠ Delivery risk / · Delivers on time
+```
+
+- "saves X vs. next best" only shown when there are ≥ 2 quotes and best is not tied
+- Delivery qualifier omitted when `delivery_expectation` is null
 
 ---
 
 ## Backend Logic (`services/comparison.py`)
 
-The comparison service is a pure function with no database access:
+Signature:
+```python
+def enrich_quotes(
+    quotes: list[dict],
+    rfq_quantity: Decimal,
+    delivery_expectation: date | None = None,
+    awarded_quote_id: str | None = None,
+) -> tuple[list[dict], str | None]:
+```
 
-**Input:** list of raw quote dicts + `rfq_quantity: Decimal`
-
-**Steps:**
+Steps:
 1. Compute `total_price = unit_price × rfq_quantity` for each quote
 2. Find `min_total = min(total_prices)`
-3. Set `is_best_quote = True` for all quotes where `total_price == min_total` (handles ties)
-4. Sort quotes by `total_price` ASC
-5. Set `best_quote_id` to the `id` of the first quote with `is_best_quote = True`
-6. Set `currency_warning = len(set(currencies)) > 1`
+3. Set `is_best_quote = True` for all quotes where `total_price == min_total`
+4. Set `is_awarded = (quote["id"] == awarded_quote_id)` when `awarded_quote_id` is set
+5. Set `delivery_risk = today + timedelta(lead_time_days) > delivery_expectation` where both are present
+6. Sort by `total_price` ASC, then `lead_time_days` ASC (null last)
+7. Return `(enriched_quotes, best_quote_id)`
 
-**Edge cases:**
-- Empty list → return `([], None, False)`
-- Single quote → it is always the best quote
-- All quotes with the same total → all are highlighted; `best_quote_id` = first (lowest `created_at`)
-- `unit_price = 0` → `total_price = 0`; this is a valid (and likely best) quote
+**UUID gotcha:** psycopg2 without `register_uuid()` returns UUID columns as plain strings. FastAPI path params parse to Python `UUID` objects. Always compare as `str(q["id"]) == str(quote_id)` to avoid false mismatches.
+
+**StopIteration gotcha:** `next(genexp)` raises `StopIteration` which propagates as `RuntimeError` in FastAPI's anyio threadpool. Always use `next((genexp), None)` with an explicit None check.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] All quotes for an RFQ appear in the table sorted cheapest first
-- [ ] `total_price` displayed equals `unit_price × rfq.quantity` (spot-check manually)
-- [ ] The row with the lowest total price has the green highlight and "Best Price" badge
-- [ ] When two quotes have identical total prices, both are highlighted as best
-- [ ] Adding or deleting a quote updates the best-quote highlight without a page reload
-- [ ] When all quotes use the same currency, the currency warning banner is absent
-- [ ] When quotes use two or more different currencies, the currency warning banner appears above the table
-- [ ] The table renders without errors when there are zero quotes (empty state message shown)
-- [ ] The table renders without errors when there is exactly one quote (it is the best)
-- [ ] On a viewport < 768px wide, the table scrolls horizontally and no data is clipped
+- [ ] All quotes sorted cheapest first; ties broken by lead time
+- [ ] `total_price` equals `unit_price × rfq.quantity` (spot-check)
+- [ ] Lowest-total row has green highlight and "Best Price" badge
+- [ ] Two quotes with equal totals both get the best-quote highlight
+- [ ] Adding/deleting/editing a quote updates the highlight without page reload
+- [ ] Currency warning banner shown when quotes span ≥ 2 currencies; absent otherwise
+- [ ] "Late delivery risk" badge shown on correct rows; absent when no delivery date set
+- [ ] InsightBanner shows awarded supplier after awarding; best option otherwise
+- [ ] "saves X vs. next best" shown only when best is unique and there are ≥ 2 quotes
+- [ ] All action buttons hidden when `rfq.status !== 'open'`
+- [ ] Empty state shown when no quotes; no JS errors
 
 ---
 
 ## Out of Scope
 
-- User-controlled sorting (clicking column headers to sort)
-- Saving or exporting the comparison as PDF or Excel
-- Currency conversion (showing quotes in a common currency)
-- Weighted scoring (e.g., scoring lead time vs price vs payment terms)
-- Historical comparison across multiple RFQs
+- User-controlled column sorting
+- Export to PDF / Excel
+- Currency conversion
+- Weighted scoring (lead time vs price vs terms)
+- Historical comparison across RFQs

@@ -2,32 +2,50 @@
 
 ## Overview
 
-A procurement user can create, view, list, and delete Requests for Quotation (RFQs). An RFQ is the root entity in the system — all supplier quotes belong to an RFQ.
+A procurement user can create, view, list, edit, void, and delete Requests for Quotation (RFQs). An RFQ is the root entity — all supplier quotes belong to an RFQ. RFQs follow a status lifecycle: `open` → `awarded` → `void`.
 
 ## User Stories
 
 | ID | As a... | I want to... | So that... |
 |---|---|---|---|
 | RFQ-1 | procurement user | create a new RFQ with item details | I can start collecting supplier quotes |
-| RFQ-2 | procurement user | see a list of all my RFQs | I can navigate to any active request |
+| RFQ-2 | procurement user | see a list of all my RFQs with their status | I can navigate to any active request |
 | RFQ-3 | procurement user | view the full details of an RFQ | I can review what was requested before comparing quotes |
-| RFQ-4 | procurement user | delete an RFQ I no longer need | I can keep the list clean |
+| RFQ-4 | procurement user | edit an open RFQ | I can correct mistakes before awarding |
+| RFQ-5 | procurement user | void an RFQ | I can close it as rejected or cancelled |
+| RFQ-6 | procurement user | search RFQs by name | I can find a specific RFQ quickly |
+| RFQ-7 | procurement user | delete an RFQ I no longer need | I can keep the list clean |
 
 ---
 
 ## Data
 
-An RFQ has the following fields:
-
 | Field | Type | Required | Constraints |
 |---|---|---|---|
 | `item_name` | string | Yes | Non-empty, max 255 chars |
-| `material_spec` | string | No | Free text, any length |
-| `quantity` | decimal | Yes | Must be > 0 |
-| `delivery_expectation` | date | No | ISO format `YYYY-MM-DD` |
-| `notes` | string | No | Free text, any length |
+| `material_spec` | string | No | Free text |
+| `quantity` | decimal | Yes | > 0 |
+| `delivery_expectation` | date | No | ISO `YYYY-MM-DD` |
+| `notes` | string | No | Free text |
+| `status` | string | System | `open` \| `awarded` \| `void`; default `open` |
+| `awarded_quote_id` | UUID | System | FK to the awarded quote; null unless status is `awarded` |
 
-System-managed fields: `id` (UUID), `created_at`, `updated_at`, `quote_count` (computed).
+System-managed: `id` (UUID), `created_at`, `updated_at`, `quote_count` (computed).
+
+---
+
+## Status Lifecycle
+
+```
+open ──► awarded ──► void
+  └──────────────────►
+```
+
+- `open` — initial state; RFQ and quotes are fully editable
+- `awarded` — set via `/award` endpoint; RFQ and quotes become read-only; only allowed transition is to `void`
+- `void` — terminal state; nothing can be modified
+
+Status changes only via dedicated endpoints (`/award`, `/void`). `PUT /api/rfq/:id` does not accept a status field.
 
 ---
 
@@ -35,100 +53,98 @@ System-managed fields: `id` (UUID), `created_at`, `updated_at`, `quote_count` (c
 
 ### RFQ-1: Create RFQ
 
-**Trigger:** User clicks "Create New RFQ" from the list page and submits the form.
+**Trigger:** "New RFQ" button on the list page opens a modal.
 
-**Inputs:** item_name, material_spec, quantity, delivery_expectation, notes.
+**Validation:** `item_name` required; `quantity` required and > 0; all others optional.
 
-**Validation (client-side, on blur and on submit):**
-- `item_name`: required, non-empty
-- `quantity`: required, must parse as a positive number (> 0)
-- All other fields: optional
-
-**Validation (server-side, always):**
-- Same rules as above; server returns HTTP 422 with field-level errors if violated
-
-**Success behavior:**
-- RFQ is persisted to the database
-- User is navigated to the RFQ detail page (`/rfq/{id}`)
-- The new RFQ shows `quote_count: 0`
-
-**Error behavior:**
-- Client-side errors: displayed inline beneath the offending input before the form is submitted
-- Server-side 422: field errors are mapped back to the corresponding input fields
-- Server-side 500: a generic "Something went wrong" message is shown
+**Success:** Modal closes; user navigates to the new RFQ's detail page. Status is `open`.
 
 ---
 
 ### RFQ-2: List RFQs
 
-**Trigger:** User navigates to `/rfq`.
+**Display:** Table — Item Name | Status | Quantity | Delivery By | Quotes | Created | Actions
 
-**Display:** A table with columns — Item Name | Quantity | Delivery Expectation | Quote Count | Created | Actions.
+**Status badge:** Colour-coded chip per row.
 
-**Ordering:** Newest first (`created_at DESC`).
+**Search:** Input above table, debounced 300ms. Filters by `item_name` (case-insensitive). Resets to page 1 on change. Empty state message changes when search yields no results.
 
-**Pagination:** 20 items per page; offset-based. Show total count.
-
-**Empty state:** "No RFQs yet. Create your first one." with a call-to-action button.
-
-**Loading state:** A spinner or skeleton rows while the fetch is in progress.
-
-**Actions per row:**
-- "View" — navigates to `/rfq/{id}`
-- "Delete" — see RFQ-4
+**Pagination:** 20 rows/page, offset-based, sticky at bottom of scroll container.
 
 ---
 
 ### RFQ-3: View RFQ
 
-**Trigger:** User clicks "View" from the list or is navigated there after creating an RFQ.
+**RFQ metadata strip** — horizontal, always fully expanded. Fields as columns (label above value): Quantity | Delivery By | Material Spec | Notes | Created. Item name is the page heading, not repeated in the strip. Long fields flex to fill available width; overflow truncated with a tooltip.
 
-**Display:** A read-only summary card showing all RFQ fields. Below it, the quote comparison table and add-quote form (see Feature Spec 02 and 03).
-
-**No edit functionality** — editing an RFQ is out of scope for this version.
+**Status indicator** in the page header alongside the item name.
 
 ---
 
-### RFQ-4: Delete RFQ
+### RFQ-4: Edit RFQ
 
-**Trigger:** User clicks "Delete" on a row in the RFQ list.
+**Trigger:** "Edit RFQ" button — only rendered when `status === 'open'`.
 
-**Confirmation:** A browser `confirm()` dialog (or inline confirmation UI) before issuing the delete request. Deletes cascade to all associated supplier quotes.
+**Modal:** Pre-populated with current values. Fields: item_name, material_spec, quantity, delivery_expectation, notes. No status field — use `/void` to change status.
 
-**Success behavior:** Row is removed from the list without a full page reload.
+**Blocked states:** Button hidden for `awarded` and `void` RFQs. Backend also enforces (409) as a safety net.
 
-**Error behavior:** If the RFQ is not found (404), show an inline error and refresh the list.
+---
+
+### RFQ-5: Void RFQ
+
+**Trigger:** "Void RFQ" button — rendered when `status !== 'void'`.
+
+**Confirmation:** `ConfirmModal` with contextual message:
+- From `open`: "Void [name]? This will close the RFQ as rejected."
+- From `awarded`: "Void [name]? This will reject the awarded decision."
+
+**Result:** Status becomes `void`. All lock notices update. Void is irreversible.
+
+---
+
+### RFQ-6: Search RFQs
+
+**Trigger:** Typing in the search input above the RFQ list.
+
+**Behaviour:** Debounced 300ms. Sends `?search=` query param. `total` in the response reflects the filtered count.
+
+---
+
+### RFQ-7: Delete RFQ
+
+**Trigger:** "Delete" button on the list row → `ConfirmModal`.
+
+**Result:** RFQ and all associated quotes are deleted. Row removed without full page reload.
 
 ---
 
 ## API Contracts
 
-| Method | Path | Request | Success Response |
-|---|---|---|---|
-| `POST` | `/api/rfq` | RFQ fields as JSON body | 201 with full RFQ object |
-| `GET` | `/api/rfq` | `?limit=20&offset=0` query params | 200 with `{ items, total, limit, offset }` |
-| `GET` | `/api/rfq/{rfq_id}` | — | 200 with RFQ object; 404 if not found |
-| `DELETE` | `/api/rfq/{rfq_id}` | — | 204 No Content; 404 if not found |
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/rfq` | Create RFQ |
+| `GET` | `/api/rfq?limit&offset&search` | List RFQs |
+| `GET` | `/api/rfq/{rfq_id}` | Get single RFQ |
+| `PUT` | `/api/rfq/{rfq_id}` | Edit RFQ (open only) |
+| `POST` | `/api/rfq/{rfq_id}/award` | Award RFQ |
+| `POST` | `/api/rfq/{rfq_id}/void` | Void RFQ |
+| `DELETE` | `/api/rfq/{rfq_id}` | Delete RFQ |
 
-Full request/response shapes: see `product-docs/03-api-spec.md`.
+Full shapes: `product-docs/03-api-spec.md`.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] User can submit the create form with only `item_name` and `quantity` filled; all other fields are optional
-- [ ] Submitting with an empty `item_name` shows a validation error and does not call the API
-- [ ] Submitting with `quantity = 0` or `quantity = -5` shows a validation error
-- [ ] After creation, the RFQ list shows the new RFQ at the top
-- [ ] `quote_count` on the list reflects the current number of quotes (not a stale cache)
-- [ ] Deleting an RFQ also removes all its quotes (no orphaned data in the DB)
-- [ ] Deleting an already-deleted RFQ (404) does not crash the UI
-
----
-
-## Out of Scope
-
-- Editing an existing RFQ
-- RFQ status workflow (draft, open, closed)
-- Attaching documents to an RFQ
-- Multi-user ownership or assignment
+- [ ] Create form submits with only `item_name` and `quantity`; all other fields optional
+- [ ] Empty `item_name` or `quantity ≤ 0` shows validation error and does not call API
+- [ ] New RFQ appears at top of list with `status: open` badge
+- [ ] Editing an open RFQ updates values without changing status
+- [ ] "Edit RFQ" button is absent when status is `awarded` or `void`
+- [ ] Voiding from `open` → status badge shows "Void"; button disappears
+- [ ] Voiding from `awarded` → status changes from "Awarded" to "Void"
+- [ ] Search filters the list live; clearing search restores full list
+- [ ] Delete shows ConfirmModal (no `window.confirm`)
+- [ ] Deleting an RFQ removes all its quotes (no orphaned data)
+- [ ] `quote_count` reflects current number of quotes (not stale)
