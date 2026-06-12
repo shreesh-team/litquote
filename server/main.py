@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from db.connection import run_migrations
-from routers import rfq, quotes
+from routers import rfq, quotes, csv_import
 
 
 @asynccontextmanager
@@ -23,6 +23,7 @@ app.add_middleware(
 
 app.include_router(rfq.router)
 app.include_router(quotes.router)
+app.include_router(csv_import.router)
 
 
 @app.exception_handler(Exception)

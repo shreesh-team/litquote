@@ -5,12 +5,14 @@ import { useQuotes } from '../hooks/useQuotes'
 import RFQSummaryCard from '../components/RFQSummaryCard'
 import QuoteTable from '../components/QuoteTable'
 import AddQuoteModal from '../components/AddQuoteModal'
+import CSVImportModal from '../components/CSVImportModal'
 
 export default function RFQDetailPage() {
   const { id } = useParams()
   const { rfq, loading, error } = useRFQ(id)
   const { data: quotesData, loading: quotesLoading, error: quotesError, fetchQuotes, deleteQuote } = useQuotes(id)
   const [modalOpen, setModalOpen] = useState(false)
+  const [csvModalOpen, setCsvModalOpen] = useState(false)
 
   if (loading) return <div className="page"><div className="loading">Loading…</div></div>
   if (error) return (
@@ -35,9 +37,14 @@ export default function RFQDetailPage() {
       <section className="section">
         <div className="section-header">
           <h2>Supplier Quotes</h2>
-          <button className="btn btn-primary btn-sm" onClick={() => setModalOpen(true)}>
-            + Add Quote
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-sm" onClick={() => setCsvModalOpen(true)}>
+              Upload Quotes
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setModalOpen(true)}>
+              + Add Quote
+            </button>
+          </div>
         </div>
         {quotesError && <div className="alert alert-error">{quotesError}</div>}
         {quotesLoading ? (
@@ -56,6 +63,14 @@ export default function RFQDetailPage() {
           rfqId={id}
           onSuccess={fetchQuotes}
           onClose={() => setModalOpen(false)}
+        />
+      )}
+
+      {csvModalOpen && (
+        <CSVImportModal
+          rfqId={id}
+          onSuccess={fetchQuotes}
+          onClose={() => setCsvModalOpen(false)}
         />
       )}
     </div>
