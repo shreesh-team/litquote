@@ -150,14 +150,19 @@ def update_rfq(rfq_id: UUID, body: RFQUpdate, db: PgConnection = Depends(get_db)
 @router.post("/{rfq_id}/void", response_model=RFQResponse)
 def void_rfq(rfq_id: UUID, db: PgConnection = Depends(get_db)):
     with db.cursor() as cur:
+        cur.execute("SELECT status FROM rfq WHERE id = %s", (str(rfq_id),))
+        row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="RFQ not found")
+    if row[0] == "void":
+        raise HTTPException(status_code=409, detail="This RFQ has already been voided.")
+
+    with db.cursor() as cur:
         cur.execute(
-            "UPDATE rfq SET status = 'void', updated_at = now() WHERE id = %s RETURNING id",
+            "UPDATE rfq SET status = 'void', updated_at = now() WHERE id = %s",
             (str(rfq_id),),
         )
-        updated = cur.fetchone()
         db.commit()
-    if updated is None:
-        raise HTTPException(status_code=404, detail="RFQ not found")
     return get_rfq(rfq_id, db)
 
 

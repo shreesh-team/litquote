@@ -75,6 +75,7 @@ class QuoteResponse(BaseModel):
     remarks: str | None
     source: str
     created_at: datetime
+    updated_at: datetime
     total_price: Decimal
     is_best_quote: bool
     delivery_risk: bool

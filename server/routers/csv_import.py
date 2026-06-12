@@ -78,7 +78,7 @@ def import_csv(
                     (rfq_id, supplier_name, unit_price, currency, lead_time_days, payment_terms, remarks, source)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, 'csv')
                 RETURNING id, rfq_id, supplier_name, unit_price, currency,
-                          lead_time_days, payment_terms, remarks, source, created_at
+                          lead_time_days, payment_terms, remarks, source, created_at, updated_at
                 """,
                 (
                     str(rfq_id),

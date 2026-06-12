@@ -14,7 +14,7 @@ router = APIRouter(tags=["quotes"])
 
 _QUOTE_COLS = """
     q.id, q.rfq_id, q.supplier_name, q.unit_price, q.currency,
-    q.lead_time_days, q.payment_terms, q.remarks, q.source, q.created_at
+    q.lead_time_days, q.payment_terms, q.remarks, q.source, q.created_at, q.updated_at
 """
 
 _RFQ_COLS = """
@@ -40,6 +40,7 @@ def _quote_row_to_dict(row) -> dict:
         "remarks": row[7],
         "source": row[8],
         "created_at": row[9],
+        "updated_at": row[10],
     }
 
 
@@ -90,7 +91,7 @@ def add_quote(rfq_id: UUID, body: QuoteCreate, db: PgConnection = Depends(get_db
                 (rfq_id, supplier_name, unit_price, currency, lead_time_days, payment_terms, remarks, source)
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'manual')
             RETURNING id, rfq_id, supplier_name, unit_price, currency,
-                      lead_time_days, payment_terms, remarks, source, created_at
+                      lead_time_days, payment_terms, remarks, source, created_at, updated_at
             """,
             (
                 str(rfq_id),
@@ -174,7 +175,7 @@ def update_quote(quote_id: UUID, body: QuoteUpdate, db: PgConnection = Depends(g
 
     if updates:
         with db.cursor() as cur:
-            set_parts = [f"{k} = %s" for k in updates]
+            set_parts = [f"{k} = %s" for k in updates] + ["updated_at = now()"]
             params = list(updates.values()) + [str(quote_id)]
             cur.execute(
                 f"UPDATE supplier_quote SET {', '.join(set_parts)} WHERE id = %s",
@@ -204,7 +205,11 @@ def update_quote(quote_id: UUID, body: QuoteUpdate, db: PgConnection = Depends(g
 
 @router.post("/api/rfq/{rfq_id}/award", response_model=RFQResponse)
 def award_rfq(rfq_id: UUID, body: AwardRequest, db: PgConnection = Depends(get_db)):
-    _get_rfq_or_404(db, rfq_id)
+    rfq = _get_rfq_or_404(db, rfq_id)
+    if rfq["status"] == "void":
+        raise HTTPException(status_code=409, detail="A voided RFQ cannot be awarded.")
+    if rfq["status"] == "awarded":
+        raise HTTPException(status_code=409, detail="This RFQ has already been awarded.")
 
     with db.cursor() as cur:
         cur.execute(
