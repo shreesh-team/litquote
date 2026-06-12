@@ -164,9 +164,14 @@ def void_rfq(rfq_id: UUID, db: PgConnection = Depends(get_db)):
 @router.delete("/{rfq_id}", status_code=204)
 def delete_rfq(rfq_id: UUID, db: PgConnection = Depends(get_db)):
     with db.cursor() as cur:
-        cur.execute("DELETE FROM rfq WHERE id = %s RETURNING id", (str(rfq_id),))
-        deleted = cur.fetchone()
-        db.commit()
+        cur.execute("SELECT status FROM rfq WHERE id = %s", (str(rfq_id),))
+        row = cur.fetchone()
 
-    if deleted is None:
+    if row is None:
         raise HTTPException(status_code=404, detail="RFQ not found")
+    if row[0] in ("awarded", "void"):
+        raise HTTPException(status_code=409, detail="Awarded and voided RFQs cannot be deleted.")
+
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM rfq WHERE id = %s", (str(rfq_id),))
+        db.commit()

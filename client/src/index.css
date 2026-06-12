@@ -97,13 +97,15 @@ a:hover { text-decoration: underline; }
 
 /* ── Page layout ── */
 .page {
-  padding: 28px 32px 32px;
+  padding: 28px 32px 0;
   width: 100%;
   flex: 1;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .page-narrow { max-width: 560px; }
@@ -137,6 +139,15 @@ a:hover { text-decoration: underline; }
 .back-link:hover { color: var(--primary); text-decoration: none; }
 
 .section { margin-bottom: 32px; }
+
+.section--fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  overflow: hidden;
+}
 
 .section h2 {
   font-size: 14px;
@@ -230,9 +241,15 @@ a:hover { text-decoration: underline; }
   border-radius: 8px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+  min-height: 0;
 }
 
-.table-wrap { overflow-x: auto; flex: 1; }
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
 
 .table {
   width: 100%;
@@ -251,6 +268,9 @@ a:hover { text-decoration: underline; }
   text-transform: uppercase;
   letter-spacing: 0.6px;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .table td {
@@ -279,6 +299,7 @@ a:hover { text-decoration: underline; }
   font-size: 12px;
   background: var(--surface-2);
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .pagination-count {

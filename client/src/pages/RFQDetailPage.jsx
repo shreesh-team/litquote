@@ -129,7 +129,7 @@ export default function RFQDetailPage() {
 
       <RFQSummaryCard rfq={rfq} />
 
-      <section className="section">
+      <section className="section section--fill">
         <div className="section-header">
           <h2>Supplier Quotes</h2>
           {isOpen && (

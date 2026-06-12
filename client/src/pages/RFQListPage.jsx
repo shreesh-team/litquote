@@ -119,12 +119,14 @@ export default function RFQListPage() {
                       </td>
                       <td className="actions">
                         <Link to={`/rfq/${rfq.id}`} className="btn btn-sm">View</Link>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => setConfirmItem(rfq)}
-                        >
-                          Delete
-                        </button>
+                        {rfq.status === 'open' && (
+                          <button
+                            className="btn btn-sm btn-danger"
+                            onClick={() => setConfirmItem(rfq)}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )

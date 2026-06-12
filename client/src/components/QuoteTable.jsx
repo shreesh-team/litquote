@@ -76,13 +76,15 @@ export default function QuoteTable({ quotes, onDelete, onAward, onRefresh, rfq, 
   const isLocked = rfq?.status !== 'open'
 
   return (
-    <div className="quote-table-wrapper">
-      {currencyWarning && (
-        <div className="alert alert-warning">
-          ⚠ Quotes use mixed currencies. Total price comparison may not be meaningful.
-        </div>
-      )}
-      <table className="quote-table">
+    <div className="quote-section-container">
+      <div className="quote-table-wrapper">
+        {currencyWarning && (
+          <div className="alert alert-warning">
+            ⚠ Quotes use mixed currencies. Total price comparison may not be meaningful.
+          </div>
+        )}
+        <div className="quote-table-scroll">
+        <table className="quote-table">
         <thead>
           <tr>
             <th className="th-sort" onClick={() => handleSort('supplier_name')}>
@@ -159,20 +161,22 @@ export default function QuoteTable({ quotes, onDelete, onAward, onRefresh, rfq, 
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+        </div>
+      </div>
 
       {totalPages > 1 && (
-        <div className="quote-pagination">
+        <div className="pagination">
+          <span className="pagination-count">
+            Page {safePage + 1} of {totalPages} ({quotes.length} quotes)
+          </span>
           <button
             className="btn btn-sm"
             onClick={() => setPage(p => Math.max(0, p - 1))}
             disabled={safePage === 0}
           >
-            ← Prev
+            ← Previous
           </button>
-          <span className="pagination-count">
-            Page {safePage + 1} of {totalPages} ({quotes.length} quotes)
-          </span>
           <button
             className="btn btn-sm"
             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
