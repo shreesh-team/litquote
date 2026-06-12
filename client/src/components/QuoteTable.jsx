@@ -1,14 +1,31 @@
 import { useState } from 'react'
+import ConfirmModal from './ConfirmModal'
+import EditQuoteModal from './EditQuoteModal'
 import './QuoteTable.css'
 
 const PAGE_SIZE = 10
 
-export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
+export default function QuoteTable({ quotes, onDelete, onAward, onRefresh, rfq, currencyWarning }) {
   const [page, setPage] = useState(0)
+  const [confirmQuote, setConfirmQuote] = useState(null)
+  const [awardingQuote, setAwardingQuote] = useState(null)
+  const [editQuote, setEditQuote] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(quotes.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
   const pageQuotes = quotes.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+
+  const handleDeleteConfirm = async () => {
+    const q = confirmQuote
+    setConfirmQuote(null)
+    await onDelete(q.id)
+  }
+
+  const handleAwardConfirm = async () => {
+    const q = awardingQuote
+    setAwardingQuote(null)
+    await onAward(q.id)
+  }
 
   if (quotes.length === 0) {
     return (
@@ -21,6 +38,8 @@ export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
       </div>
     )
   }
+
+  const isLocked = rfq?.status !== 'open'
 
   return (
     <div className="quote-table-wrapper">
@@ -45,14 +64,20 @@ export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
         </thead>
         <tbody>
           {pageQuotes.map((q) => (
-            <tr key={q.id} className={q.is_best_quote ? 'row--best' : ''}>
+            <tr
+              key={q.id}
+              className={[
+                q.is_awarded ? 'row--awarded' : (q.is_best_quote ? 'row--best' : ''),
+              ].filter(Boolean).join(' ')}
+            >
               <td>
                 {q.supplier_name}
-                {q.is_best_quote && <span className="badge badge-best">Best Price</span>}
+                {q.is_awarded && <span className="badge badge-awarded">Awarded</span>}
+                {!q.is_awarded && q.is_best_quote && <span className="badge badge-best">Best Price</span>}
               </td>
               <td className="num">{Number(q.unit_price).toFixed(2)}</td>
               <td>{q.currency}</td>
-              <td className={`num${q.is_best_quote ? ' num--best' : ''}`}>
+              <td className={`num${q.is_best_quote && !q.is_awarded ? ' num--best' : ''}${q.is_awarded ? ' num--awarded' : ''}`}>
                 {Number(q.total_price).toFixed(2)}
               </td>
               <td>
@@ -66,13 +91,28 @@ export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
                   {q.source === 'csv' ? 'CSV' : 'Manual'}
                 </span>
               </td>
-              <td>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => onDelete(q.id)}
-                >
-                  Delete
-                </button>
+              <td className="actions-cell">
+                {!isLocked && (
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() => setAwardingQuote(q)}
+                  >
+                    Award
+                  </button>
+                )}
+                {!isLocked && (
+                  <button className="btn btn-sm" onClick={() => setEditQuote(q)}>
+                    Edit
+                  </button>
+                )}
+                {!isLocked && (
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => setConfirmQuote(q)}
+                  >
+                    Delete
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -99,6 +139,34 @@ export default function QuoteTable({ quotes, onDelete, currencyWarning }) {
             Next →
           </button>
         </div>
+      )}
+
+      {confirmQuote && (
+        <ConfirmModal
+          message={`Delete the quote from "${confirmQuote.supplier_name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          danger={true}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setConfirmQuote(null)}
+        />
+      )}
+
+      {awardingQuote && (
+        <ConfirmModal
+          message={`Award this RFQ to "${awardingQuote.supplier_name}" at ${awardingQuote.currency} ${Number(awardingQuote.total_price).toFixed(2)}?`}
+          confirmLabel="Award"
+          danger={false}
+          onConfirm={handleAwardConfirm}
+          onCancel={() => setAwardingQuote(null)}
+        />
+      )}
+
+      {editQuote && (
+        <EditQuoteModal
+          quote={editQuote}
+          onSuccess={onRefresh}
+          onClose={() => setEditQuote(null)}
+        />
       )}
     </div>
   )

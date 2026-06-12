@@ -22,5 +22,5 @@ export function useRFQ(id) {
       .finally(() => setLoading(false))
   }, [id])
 
-  return { rfq, loading, error }
+  return { rfq, loading, error, setRFQ }
 }

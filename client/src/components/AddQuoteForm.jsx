@@ -32,8 +32,8 @@ function validate(fields) {
   return errors
 }
 
-export default function AddQuoteForm({ onSubmit, loading, error, fieldErrors }) {
-  const [fields, setFields] = useState(DEFAULTS)
+export default function AddQuoteForm({ onSubmit, loading, error, fieldErrors, initialValues }) {
+  const [fields, setFields] = useState(() => initialValues ? { ...DEFAULTS, ...initialValues } : DEFAULTS)
   const [touched, setTouched] = useState({})
   const [localErrors, setLocalErrors] = useState({})
 

@@ -51,6 +51,18 @@
   padding-left: 11px;
 }
 
+/* Awarded quote row */
+.quote-table .row--awarded td {
+  background: #eff6ff;
+}
+.quote-table .row--awarded:hover td {
+  background: #dbeafe;
+}
+.quote-table .row--awarded td:first-child {
+  border-left: 3px solid var(--primary);
+  padding-left: 11px;
+}
+
 /* Numeric cells */
 .quote-table .num {
   text-align: right;
@@ -63,6 +75,11 @@
 .quote-table .num--best {
   font-weight: 700;
   color: var(--success);
+}
+
+.quote-table .num--awarded {
+  font-weight: 700;
+  color: var(--primary);
 }
 
 /* Remarks */
@@ -92,6 +109,20 @@
   color: var(--success-text);
   border: 1px solid var(--success-border);
   margin-left: 6px;
+}
+
+.badge-awarded {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  margin-left: 6px;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .badge-risk {

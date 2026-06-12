@@ -19,6 +19,21 @@ class RFQCreate(BaseModel):
         return v
 
 
+class RFQUpdate(BaseModel):
+    item_name: str | None = Field(default=None, min_length=1, max_length=255)
+    material_spec: str | None = None
+    quantity: Decimal | None = Field(default=None, gt=0)
+    delivery_expectation: date | None = None
+    notes: str | None = None
+
+    @field_validator("item_name")
+    @classmethod
+    def item_name_not_blank(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("item_name must not be blank")
+        return v
+
+
 class RFQResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -28,6 +43,8 @@ class RFQResponse(BaseModel):
     quantity: Decimal
     delivery_expectation: date | None
     notes: str | None
+    status: str
+    awarded_quote_id: UUID | None
     created_at: datetime
     updated_at: datetime
     quote_count: int

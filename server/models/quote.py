@@ -34,6 +34,34 @@ class QuoteCreate(BaseModel):
         return v
 
 
+class QuoteUpdate(BaseModel):
+    supplier_name: str | None = Field(default=None, min_length=1, max_length=255)
+    unit_price: Decimal | None = Field(default=None, ge=0)
+    currency: str | None = None
+    lead_time_days: int | None = Field(default=None, ge=0)
+    payment_terms: str | None = Field(default=None, max_length=255)
+    remarks: str | None = None
+
+    @field_validator("supplier_name")
+    @classmethod
+    def supplier_name_not_blank(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("supplier_name must not be blank")
+        return v
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def currency_uppercase(cls, v: str | None) -> str | None:
+        return v.upper() if v else v
+
+    @field_validator("currency")
+    @classmethod
+    def currency_three_chars(cls, v: str | None) -> str | None:
+        if v is not None and (not v.isalpha() or len(v) != 3):
+            raise ValueError("currency must be exactly 3 alphabetic characters")
+        return v
+
+
 class QuoteResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,6 +78,7 @@ class QuoteResponse(BaseModel):
     total_price: Decimal
     is_best_quote: bool
     delivery_risk: bool
+    is_awarded: bool
 
 
 class QuoteSummary(BaseModel):

@@ -18,6 +18,8 @@ _MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 @router.post("/api/rfq/{rfq_id}/quotes/import")
 def import_csv(rfq_id: UUID, file: UploadFile = File(...), db: PgConnection = Depends(get_db)):
     rfq = _get_rfq_or_404(db, rfq_id)
+    from routers.quotes import _check_rfq_mutable
+    _check_rfq_mutable(rfq)
 
     content = file.file.read()
     if len(content) > _MAX_FILE_SIZE:

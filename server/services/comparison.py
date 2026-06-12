@@ -7,6 +7,7 @@ def enrich_quotes(
     quotes: list[dict],
     rfq_quantity: Decimal,
     delivery_expectation: date | None = None,
+    awarded_quote_id: UUID | None = None,
 ) -> tuple[list[dict], UUID | None]:
     if not quotes:
         return [], None
@@ -19,6 +20,8 @@ def enrich_quotes(
             q["delivery_risk"] = (date.today() + timedelta(days=lead)) > delivery_expectation
         else:
             q["delivery_risk"] = False
+
+        q["is_awarded"] = (q["id"] == awarded_quote_id) if awarded_quote_id else False
 
     min_total = min(q["total_price"] for q in quotes)
     best_quote_id: UUID | None = None

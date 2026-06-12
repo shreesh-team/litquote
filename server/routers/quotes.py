@@ -3,10 +3,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from psycopg2.extensions import connection as PgConnection
+from pydantic import BaseModel
 
 from db.connection import get_db
 from models.rfq import RFQResponse
-from models.quote import QuoteCreate, QuoteResponse, QuoteListResponse, QuoteSummary
+from models.quote import QuoteCreate, QuoteUpdate, QuoteResponse, QuoteListResponse, QuoteSummary
 from services.comparison import enrich_quotes
 
 router = APIRouter(tags=["quotes"])
@@ -18,9 +19,13 @@ _QUOTE_COLS = """
 
 _RFQ_COLS = """
     r.id, r.item_name, r.material_spec, r.quantity, r.delivery_expectation,
-    r.notes, r.created_at, r.updated_at,
+    r.notes, r.status, r.awarded_quote_id, r.created_at, r.updated_at,
     COALESCE((SELECT COUNT(*) FROM supplier_quote sq WHERE sq.rfq_id = r.id), 0)::int AS quote_count
 """
+
+
+class AwardRequest(BaseModel):
+    quote_id: UUID
 
 
 def _quote_row_to_dict(row) -> dict:
@@ -46,9 +51,11 @@ def _rfq_row_to_dict(row) -> dict:
         "quantity": row[3],
         "delivery_expectation": row[4],
         "notes": row[5],
-        "created_at": row[6],
-        "updated_at": row[7],
-        "quote_count": row[8],
+        "status": row[6],
+        "awarded_quote_id": row[7],
+        "created_at": row[8],
+        "updated_at": row[9],
+        "quote_count": row[10],
     }
 
 
@@ -64,9 +71,17 @@ def _get_rfq_or_404(db: PgConnection, rfq_id: UUID) -> dict:
     return _rfq_row_to_dict(row)
 
 
+def _check_rfq_mutable(rfq: dict) -> None:
+    if rfq["status"] == "awarded":
+        raise HTTPException(status_code=409, detail="This RFQ has been awarded and is locked.")
+    if rfq["status"] == "void":
+        raise HTTPException(status_code=409, detail="This RFQ has been voided and cannot be modified.")
+
+
 @router.post("/api/rfq/{rfq_id}/quotes", status_code=201, response_model=QuoteResponse)
 def add_quote(rfq_id: UUID, body: QuoteCreate, db: PgConnection = Depends(get_db)):
     rfq = _get_rfq_or_404(db, rfq_id)
+    _check_rfq_mutable(rfq)
 
     with db.cursor() as cur:
         cur.execute(
@@ -97,10 +112,14 @@ def add_quote(rfq_id: UUID, body: QuoteCreate, db: PgConnection = Depends(get_db
         db.commit()
 
     all_quotes = [_quote_row_to_dict(r) for r in all_rows]
-    enriched, _ = enrich_quotes(all_quotes, rfq["quantity"], rfq.get("delivery_expectation"))
+    enriched, _ = enrich_quotes(
+        all_quotes, rfq["quantity"], rfq.get("delivery_expectation"), rfq.get("awarded_quote_id")
+    )
 
     new_id = new_row[0]
-    enriched_new = next(q for q in enriched if q["id"] == new_id)
+    enriched_new = next((q for q in enriched if q["id"] == new_id), None)
+    if enriched_new is None:
+        raise HTTPException(status_code=500, detail="Failed to enrich new quote")
     return QuoteResponse(**enriched_new)
 
 
@@ -116,7 +135,9 @@ def list_quotes(rfq_id: UUID, db: PgConnection = Depends(get_db)):
         rows = cur.fetchall()
 
     quotes = [_quote_row_to_dict(r) for r in rows]
-    enriched, best_quote_id = enrich_quotes(quotes, rfq["quantity"], rfq.get("delivery_expectation"))
+    enriched, best_quote_id = enrich_quotes(
+        quotes, rfq["quantity"], rfq.get("delivery_expectation"), rfq.get("awarded_quote_id")
+    )
 
     totals = [q["total_price"] for q in enriched] if enriched else []
     currencies = {q["currency"] for q in enriched}
@@ -136,8 +157,84 @@ def list_quotes(rfq_id: UUID, db: PgConnection = Depends(get_db)):
     )
 
 
+@router.put("/api/quote/{quote_id}", response_model=QuoteResponse)
+def update_quote(quote_id: UUID, body: QuoteUpdate, db: PgConnection = Depends(get_db)):
+    # Fetch quote and check lock before making any changes
+    with db.cursor() as cur:
+        cur.execute("SELECT rfq_id FROM supplier_quote WHERE id = %s", (str(quote_id),))
+        row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Quote not found")
+
+    rfq_id = row[0]
+    rfq = _get_rfq_or_404(db, rfq_id)
+    _check_rfq_mutable(rfq)
+
+    updates = body.model_dump(exclude_unset=True)
+
+    if updates:
+        with db.cursor() as cur:
+            set_parts = [f"{k} = %s" for k in updates]
+            params = list(updates.values()) + [str(quote_id)]
+            cur.execute(
+                f"UPDATE supplier_quote SET {', '.join(set_parts)} WHERE id = %s",
+                params,
+            )
+            db.commit()
+        rfq = _get_rfq_or_404(db, rfq_id)
+
+    with db.cursor() as cur:
+        cur.execute(
+            f"SELECT {_QUOTE_COLS} FROM supplier_quote q WHERE q.rfq_id = %s",
+            (str(rfq_id),),
+        )
+        all_rows = cur.fetchall()
+
+    all_quotes = [_quote_row_to_dict(r) for r in all_rows]
+    enriched, _ = enrich_quotes(
+        all_quotes, rfq["quantity"], rfq.get("delivery_expectation"), rfq.get("awarded_quote_id")
+    )
+
+    quote_id_str = str(quote_id)
+    updated_quote = next((q for q in enriched if str(q["id"]) == quote_id_str), None)
+    if updated_quote is None:
+        raise HTTPException(status_code=500, detail="Failed to enrich updated quote")
+    return QuoteResponse(**updated_quote)
+
+
+@router.post("/api/rfq/{rfq_id}/award", response_model=RFQResponse)
+def award_rfq(rfq_id: UUID, body: AwardRequest, db: PgConnection = Depends(get_db)):
+    _get_rfq_or_404(db, rfq_id)
+
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM supplier_quote WHERE id = %s AND rfq_id = %s",
+            (str(body.quote_id), str(rfq_id)),
+        )
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=400, detail="Quote does not belong to this RFQ")
+
+        cur.execute(
+            "UPDATE rfq SET status = 'awarded', awarded_quote_id = %s, updated_at = now() WHERE id = %s",
+            (str(body.quote_id), str(rfq_id)),
+        )
+        db.commit()
+
+    rfq = _get_rfq_or_404(db, rfq_id)
+    return RFQResponse(**rfq)
+
+
 @router.delete("/api/quote/{quote_id}", status_code=204)
 def delete_quote(quote_id: UUID, db: PgConnection = Depends(get_db)):
+    with db.cursor() as cur:
+        cur.execute("SELECT rfq_id FROM supplier_quote WHERE id = %s", (str(quote_id),))
+        row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Quote not found")
+
+    rfq = _get_rfq_or_404(db, row[0])
+    _check_rfq_mutable(rfq)
+
     with db.cursor() as cur:
         cur.execute(
             "DELETE FROM supplier_quote WHERE id = %s RETURNING id",

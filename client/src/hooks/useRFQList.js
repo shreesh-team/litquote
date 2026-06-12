@@ -8,11 +8,13 @@ export function useRFQList(limit = 20) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetch = useCallback(async (off = offset) => {
+  const fetch = useCallback(async (off = 0, search = '') => {
     setLoading(true)
     setError(null)
     try {
-      const { data } = await client.get('/rfq', { params: { limit, offset: off } })
+      const params = { limit, offset: off }
+      if (search) params.search = search
+      const { data } = await client.get('/rfq', { params })
       setRFQs(data.items)
       setTotal(data.total)
       setOffset(off)
@@ -21,27 +23,26 @@ export function useRFQList(limit = 20) {
     } finally {
       setLoading(false)
     }
-  }, [limit, offset])
+  }, [limit])
 
   useEffect(() => { fetch(0) }, [limit]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const refetch = () => fetch(offset)
+  const refetch = (search = '') => fetch(offset, search)
 
-  const deleteRFQ = async (id) => {
-    if (!window.confirm('Delete this RFQ and all its quotes?')) return
+  const deleteRFQ = async (id, search = '') => {
     try {
       await client.delete(`/rfq/${id}`)
-      await fetch(offset)
+      await fetch(offset, search)
     } catch (err) {
       if (err.response?.status === 404) {
-        await fetch(offset)
+        await fetch(offset, search)
       } else {
         setError('Failed to delete RFQ.')
       }
     }
   }
 
-  const goToPage = (newOffset) => fetch(newOffset)
+  const goToPage = (newOffset, search = '') => fetch(newOffset, search)
 
   return { rfqs, total, offset, limit, loading, error, refetch, deleteRFQ, goToPage }
 }

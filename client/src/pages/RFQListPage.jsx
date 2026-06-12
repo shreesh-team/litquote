@@ -1,15 +1,40 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link } from 'react-router'
 import { useRFQList } from '../hooks/useRFQList'
 import CreateRFQModal from '../components/CreateRFQModal'
+import ConfirmModal from '../components/ConfirmModal'
+
+const STATUS_LABELS = {
+  open: { label: 'Open', cls: 'status-open' },
+  awarded: { label: 'Awarded', cls: 'status-awarded' },
+  void: { label: 'Void', cls: 'status-void' },
+}
 
 export default function RFQListPage() {
+  const [search, setSearch] = useState('')
   const { rfqs, total, offset, limit, loading, error, refetch, deleteRFQ, goToPage } = useRFQList()
   const [showModal, setShowModal] = useState(false)
+  const [confirmItem, setConfirmItem] = useState(null)
+  const debounceRef = useRef(null)
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value
+    setSearch(val)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      goToPage(0, val)
+    }, 300)
+  }
 
   const handleModalClose = () => {
     setShowModal(false)
-    refetch()
+    refetch(search)
+  }
+
+  const handleDeleteConfirm = async () => {
+    const item = confirmItem
+    setConfirmItem(null)
+    await deleteRFQ(item.id, search)
   }
 
   return (
@@ -25,17 +50,33 @@ export default function RFQListPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      <div className="search-bar">
+        <input
+          type="search"
+          value={search}
+          onChange={handleSearchChange}
+          placeholder="Search RFQs by name…"
+          className="search-input"
+        />
+      </div>
+
       {loading ? (
         <div className="loading">Loading RFQs…</div>
       ) : rfqs.length === 0 ? (
         <div className="table-container">
           <div className="empty-state">
             <div className="empty-state-icon">📋</div>
-            <h3>No RFQs yet</h3>
-            <p>Create your first RFQ to start collecting and comparing supplier quotes.</p>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-              + New RFQ
-            </button>
+            <h3>{search ? 'No RFQs match your search' : 'No RFQs yet'}</h3>
+            <p>
+              {search
+                ? 'Try a different search term.'
+                : 'Create your first RFQ to start collecting and comparing supplier quotes.'}
+            </p>
+            {!search && (
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                + New RFQ
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -45,6 +86,7 @@ export default function RFQListPage() {
               <thead>
                 <tr>
                   <th>Item Name</th>
+                  <th>Status</th>
                   <th>Quantity</th>
                   <th>Delivery By</th>
                   <th>Quotes</th>
@@ -53,32 +95,40 @@ export default function RFQListPage() {
                 </tr>
               </thead>
               <tbody>
-                {rfqs.map((rfq) => (
-                  <tr key={rfq.id}>
-                    <td>
-                      <Link to={`/rfq/${rfq.id}`} style={{ color: 'var(--primary)', fontWeight: 500 }}>
-                        {rfq.item_name}
-                      </Link>
-                    </td>
-                    <td>{rfq.quantity}</td>
-                    <td>{rfq.delivery_expectation ?? <span className="text-muted">—</span>}</td>
-                    <td>
-                      <span className="stat-chip">{rfq.quote_count}</span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)' }}>
-                      {new Date(rfq.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </td>
-                    <td className="actions">
-                      <Link to={`/rfq/${rfq.id}`} className="btn btn-sm">View</Link>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => deleteRFQ(rfq.id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {rfqs.map((rfq) => {
+                  const statusInfo = STATUS_LABELS[rfq.status] ?? STATUS_LABELS.open
+                  return (
+                    <tr key={rfq.id}>
+                      <td>
+                        <Link to={`/rfq/${rfq.id}`} style={{ color: 'var(--primary)', fontWeight: 500 }}>
+                          {rfq.item_name}
+                        </Link>
+                      </td>
+                      <td>
+                        <span className={`rfq-status-badge ${statusInfo.cls}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td>{rfq.quantity}</td>
+                      <td>{rfq.delivery_expectation ?? <span className="text-muted">—</span>}</td>
+                      <td>
+                        <span className="stat-chip">{rfq.quote_count}</span>
+                      </td>
+                      <td style={{ color: 'var(--text-muted)' }}>
+                        {new Date(rfq.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </td>
+                      <td className="actions">
+                        <Link to={`/rfq/${rfq.id}`} className="btn btn-sm">View</Link>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => setConfirmItem(rfq)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -90,14 +140,14 @@ export default function RFQListPage() {
             <button
               className="btn btn-sm"
               disabled={offset === 0}
-              onClick={() => goToPage(Math.max(0, offset - limit))}
+              onClick={() => goToPage(Math.max(0, offset - limit), search)}
             >
               ← Previous
             </button>
             <button
               className="btn btn-sm"
               disabled={offset + limit >= total}
-              onClick={() => goToPage(offset + limit)}
+              onClick={() => goToPage(offset + limit, search)}
             >
               Next →
             </button>
@@ -106,6 +156,16 @@ export default function RFQListPage() {
       )}
 
       {showModal && <CreateRFQModal onClose={handleModalClose} />}
+
+      {confirmItem && (
+        <ConfirmModal
+          message={`Delete "${confirmItem.item_name}" and all its quotes? This cannot be undone.`}
+          confirmLabel="Delete"
+          danger={true}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setConfirmItem(null)}
+        />
+      )}
     </div>
   )
 }
